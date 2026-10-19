@@ -31,6 +31,22 @@ import { FaceShot, TargetFace } from '../ui/target-face';
 const BASE_VIEW = 1.04;
 /** On touch the arrow is drawn this far above the fingertip so the finger doesn't hide it. */
 const TOUCH_OFFSET_PX = 56;
+/**
+ * A fingertip rolls as it lifts, so the last few touch positions drift away from where the arrow
+ * was held. Movement this small within this time before lifting is treated as that slip.
+ */
+const SLIP_MS = 120;
+const SLIP_PX = 12;
+
+/** An arrow position while placing: face coordinates, ring, and where to show the label. */
+interface Placed {
+  x: number;
+  y: number;
+  ring: number;
+  px: number;
+  py: number;
+  label: string;
+}
 
 @Component({
   selector: 'app-end-input',
@@ -286,15 +302,10 @@ export class EndInputPage {
   );
   protected readonly comment = signal('');
   protected readonly saving = signal(false);
-  protected readonly placing = signal<{
-    x: number;
-    y: number;
-    px: number;
-    py: number;
-    label: string;
-    ring: number;
-  } | null>(null);
+  protected readonly placing = signal<Placed | null>(null);
   private pointerId: number | null = null;
+  /** Recent arrow positions while dragging: time, screen point and placement. */
+  private trail: { t: number; sx: number; sy: number; p: Placed }[] = [];
   private offset = 0;
 
   protected readonly model = computed(() => getTarget(this.round()?.targetId ?? 0));
@@ -451,7 +462,7 @@ export class EndInputPage {
     };
   }
 
-  private pointAt(e: PointerEvent) {
+  private pointAt(e: PointerEvent): Placed | null {
     if (!this.face()) return null;
     const p = this.screenToFace(
       e.clientX,
@@ -489,19 +500,21 @@ export class EndInputPage {
         y: f.y - (sy - (box.top + box.height / 2)) * u,
       });
     }
-    this.placing.set(this.pointAt(e));
+    this.trail = [];
+    this.track(e);
     e.preventDefault();
   }
   protected move(e: PointerEvent) {
     if (e.pointerId !== this.pointerId) return;
-    this.placing.set(this.pointAt(e));
+    this.track(e);
   }
   protected up(e: PointerEvent) {
     if (e.pointerId !== this.pointerId) return;
-    const p = this.pointAt(e);
+    const p = this.settled(e);
     this.pointerId = null;
     this.placing.set(null);
     this.zoomCenter.set(null);
+    this.trail = [];
     if (!p) return;
     // Points far outside the face count as a miss but keep their position.
     this.setShot({ x: p.x, y: p.y, ring: p.ring }, true);
@@ -510,6 +523,29 @@ export class EndInputPage {
     this.pointerId = null;
     this.placing.set(null);
     this.zoomCenter.set(null);
+    this.trail = [];
+  }
+
+  private track(e: PointerEvent) {
+    const p = this.pointAt(e);
+    this.placing.set(p);
+    if (!p) return;
+    this.trail.push({ t: e.timeStamp, sx: e.clientX, sy: e.clientY, p });
+    if (this.trail.length > 30) this.trail.shift();
+  }
+
+  /**
+   * Where the arrow was before the finger started lifting: the last position held at least
+   * SLIP_MS before release, if the finger moved only a little since (lift-off slip). A real move
+   * at the end keeps the latest position.
+   */
+  private settled(e: PointerEvent): Placed | null {
+    const last = this.trail.at(-1)?.p ?? this.pointAt(e);
+    const cutoff = e.timeStamp - SLIP_MS;
+    const held = [...this.trail].reverse().find((s) => s.t <= cutoff);
+    if (!held) return last;
+    const slip = Math.hypot(e.clientX - held.sx, e.clientY - held.sy);
+    return slip <= SLIP_PX ? held.p : last;
   }
 
   // ----- keypad -----
