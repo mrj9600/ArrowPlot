@@ -83,6 +83,16 @@ import { APP_VERSION } from '../version';
           </div>
         </div>
         <div class="row">
+          <span style="flex:1">Zoom while placing arrows</span>
+          <div class="seg">
+            @for (z of zooms; track z) {
+              <button type="button" [class.on]="zoom() === z" (click)="setZoom(z)">
+                {{ z === 1 ? 'Off' : z + '×' }}
+              </button>
+            }
+          </div>
+        </div>
+        <div class="row">
           <span style="flex:1">Storage</span>
           <span class="small" [class.muted]="!persisted()"
             >{{ persisted() ? 'Protected' : 'Best effort'
@@ -165,6 +175,8 @@ export class MorePage {
   protected readonly version = APP_VERSION;
   protected readonly themes: Theme[] = ['system', 'light', 'dark'];
   protected readonly theme = signal<Theme>(getTheme());
+  protected readonly zooms = [1, 2, 3, 4];
+  protected readonly zoom = signal(3);
   protected readonly busy = signal(false);
   protected readonly msg = signal<{ text: string; err?: boolean } | null>(null);
   protected readonly pending = signal<(BackupSummary & { file: File }) | null>(null);
@@ -173,6 +185,7 @@ export class MorePage {
 
   constructor() {
     this.refreshStorage();
+    this.repo.getSetting('inputZoom', 3).then((z) => this.zoom.set(z));
   }
 
   private async refreshStorage() {
@@ -199,6 +212,11 @@ export class MorePage {
     return isNaN(d.getTime())
       ? 'at an unknown time'
       : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  protected setZoom(z: number) {
+    this.zoom.set(z);
+    this.repo.setSetting('inputZoom', z);
   }
 
   protected setTheme(t: Theme) {

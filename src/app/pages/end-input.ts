@@ -27,7 +27,9 @@ import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
 import { FaceShot, TargetFace } from '../ui/target-face';
 
-const ZOOMS = [1.04, 0.72, 0.5];
+/** Half-width of the visible face when not zoomed (face radius 1 plus a small margin). */
+const BASE_VIEW = 1.04;
+/** On touch the arrow is drawn this far above the fingertip so the finger doesn't hide it. */
 const TOUCH_OFFSET_PX = 56;
 
 @Component({
@@ -86,25 +88,26 @@ const TOUCH_OFFSET_PX = 56;
             (pointerup)="up($event)"
             (pointercancel)="cancel()"
           >
-            <app-target-face
-              #face
-              [targetId]="r.targetId"
-              [scoringStyle]="r.scoringStyle"
-              [shots]="faceShots()"
-              [spot]="spotView()"
-              [arrowR]="arrowR()"
-              [view]="zoom()"
-              [minDot]="0.02"
-            />
+            <div class="clip">
+              <app-target-face
+                #face
+                [targetId]="r.targetId"
+                [scoringStyle]="r.scoringStyle"
+                [shots]="faceShots()"
+                [spot]="spotView()"
+                [arrowR]="arrowR()"
+                [view]="view()"
+                [centerX]="zoomCenter()?.x ?? 0"
+                [centerY]="zoomCenter()?.y ?? 0"
+                [minDot]="0.02"
+              />
+            </div>
             @if (placing(); as p) {
               <div class="bubble" [style.left.px]="p.px" [style.top.px]="p.py">{{ p.label }}</div>
             }
             @if (spotCount() > 1) {
               <div class="spot-tag">Spot {{ spotView()! + 1 }} / {{ spotCount() }}</div>
             }
-            <button type="button" class="zoom icon-btn" (click)="cycleZoom()" aria-label="Zoom">
-              <app-icon [name]="zoomIndex() === zooms.length - 1 ? 'zoomOut' : 'zoomIn'" />
-            </button>
           </div>
         } @else {
           <div class="keys">
@@ -229,12 +232,9 @@ const TOUCH_OFFSET_PX = 56;
       border-radius: 6px;
       box-shadow: var(--shadow);
     }
-    .zoom {
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      background: var(--surface);
-      box-shadow: var(--shadow);
+    .clip {
+      overflow: hidden;
+      border-radius: 12px;
     }
     .keys {
       display: grid;
@@ -267,7 +267,6 @@ export class EndInputPage {
   private readonly router = inject(Router);
   private readonly face = viewChild<TargetFace>('face');
 
-  protected readonly zooms = ZOOMS;
   protected readonly round = signal<Round | null>(null);
   protected readonly training = signal<Training | null>(null);
   private readonly arrow = signal<Arrow | null>(null);
@@ -278,8 +277,13 @@ export class EndInputPage {
   private readonly positioned = signal<boolean[]>([]);
   protected readonly current = signal(0);
   protected readonly mode = signal<'plot' | 'keys'>('plot');
-  protected readonly zoomIndex = signal(0);
-  protected readonly zoom = computed(() => ZOOMS[this.zoomIndex()]);
+  /** How much the face zooms in while an arrow is being placed (1 = no zoom). */
+  protected readonly zoomFactor = signal(3);
+  /** Centre of the zoomed view while placing, or null when showing the whole face. */
+  protected readonly zoomCenter = signal<{ x: number; y: number } | null>(null);
+  protected readonly view = computed(() =>
+    this.zoomCenter() ? BASE_VIEW / this.zoomFactor() : BASE_VIEW,
+  );
   protected readonly comment = signal('');
   protected readonly saving = signal(false);
   protected readonly placing = signal<{
@@ -409,7 +413,7 @@ export class EndInputPage {
         ? 'keys'
         : pref,
     );
-    this.zoomIndex.set(await this.repo.getSetting('zoomIndex', 0));
+    this.zoomFactor.set(await this.repo.getSetting('inputZoom', 3));
   }
 
   protected label(s: Shot) {
@@ -431,18 +435,30 @@ export class EndInputPage {
     this.mode.set(m);
     this.repo.setSetting('inputMode', m);
   }
-  protected cycleZoom() {
-    const i = (this.zoomIndex() + 1) % ZOOMS.length;
-    this.zoomIndex.set(i);
-    this.repo.setSetting('zoomIndex', i);
-  }
 
   // ----- plotting -----
 
+  /**
+   * Face coordinates of a screen point for a given view. Computed from the face's on-screen box
+   * rather than the rendered SVG, so it is right even before a zoom change has been drawn.
+   */
+  private screenToFace(sx: number, sy: number, view: number, c: { x: number; y: number }) {
+    const box = this.face()!.svg().nativeElement.getBoundingClientRect();
+    const u = (2 * view) / box.width;
+    return {
+      x: c.x + (sx - (box.left + box.width / 2)) * u,
+      y: c.y + (sy - (box.top + box.height / 2)) * u,
+    };
+  }
+
   private pointAt(e: PointerEvent) {
-    const face = this.face();
-    if (!face) return null;
-    const p = face.toFace(e.clientX, e.clientY - this.offset);
+    if (!this.face()) return null;
+    const p = this.screenToFace(
+      e.clientX,
+      e.clientY - this.offset,
+      this.view(),
+      this.zoomCenter() ?? { x: 0, y: 0 },
+    );
     const ring = zoneAt(this.model(), p.x, p.y, this.arrowR());
     const host = (e.currentTarget as HTMLElement).getBoundingClientRect();
     return {
@@ -460,6 +476,19 @@ export class EndInputPage {
     this.pointerId = e.pointerId;
     this.offset = e.pointerType === 'touch' ? TOUCH_OFFSET_PX : 0;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const z = this.zoomFactor();
+    if (this.face() && z > 1) {
+      // Zoom in around the pressed point, so the spot under the finger stays put on screen.
+      const sx = e.clientX;
+      const sy = e.clientY - this.offset;
+      const f = this.screenToFace(sx, sy, BASE_VIEW, { x: 0, y: 0 });
+      const box = this.face()!.svg().nativeElement.getBoundingClientRect();
+      const u = (2 * BASE_VIEW) / z / box.width;
+      this.zoomCenter.set({
+        x: f.x - (sx - (box.left + box.width / 2)) * u,
+        y: f.y - (sy - (box.top + box.height / 2)) * u,
+      });
+    }
     this.placing.set(this.pointAt(e));
     e.preventDefault();
   }
@@ -472,6 +501,7 @@ export class EndInputPage {
     const p = this.pointAt(e);
     this.pointerId = null;
     this.placing.set(null);
+    this.zoomCenter.set(null);
     if (!p) return;
     // Points far outside the face count as a miss but keep their position.
     this.setShot({ x: p.x, y: p.y, ring: p.ring }, true);
@@ -479,6 +509,7 @@ export class EndInputPage {
   protected cancel() {
     this.pointerId = null;
     this.placing.set(null);
+    this.zoomCenter.set(null);
   }
 
   // ----- keypad -----
