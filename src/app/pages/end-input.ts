@@ -37,6 +37,10 @@ const TOUCH_OFFSET_PX = 56;
  */
 const SLIP_MS = 120;
 const SLIP_PX = 12;
+/** While zoomed, the face scrolls when the arrow is within this many pixels of an edge … */
+const EDGE_PX = 56;
+/** … at up to this many visible-view widths per second (at the very edge). */
+const PAN_SPEED = 1.1;
 
 /** An arrow position while placing: face coordinates, ring, and where to show the label. */
 interface Placed {
@@ -306,6 +310,12 @@ export class EndInputPage {
   private pointerId: number | null = null;
   /** Recent arrow positions while dragging: time, screen point and placement. */
   private trail: { t: number; sx: number; sy: number; p: Placed }[] = [];
+  /** The element receiving the pointer, the finger's screen position, and edge-scroll state. */
+  private wrap: HTMLElement | null = null;
+  private finger: { x: number; y: number } | null = null;
+  private panFrame = 0;
+  private panAt = 0;
+  private lastPan = -Infinity;
   private offset = 0;
 
   protected readonly model = computed(() => getTarget(this.round()?.targetId ?? 0));
@@ -463,21 +473,26 @@ export class EndInputPage {
   }
 
   private pointAt(e: PointerEvent): Placed | null {
-    if (!this.face()) return null;
+    return this.placeAt(e.clientX, e.clientY);
+  }
+
+  /** The arrow position for a finger at this screen point (the arrow sits `offset` above it). */
+  private placeAt(clientX: number, clientY: number): Placed | null {
+    if (!this.face() || !this.wrap) return null;
     const p = this.screenToFace(
-      e.clientX,
-      e.clientY - this.offset,
+      clientX,
+      clientY - this.offset,
       this.view(),
       this.zoomCenter() ?? { x: 0, y: 0 },
     );
     const ring = zoneAt(this.model(), p.x, p.y, this.arrowR());
-    const host = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const host = this.wrap.getBoundingClientRect();
     return {
       x: p.x,
       y: p.y,
       ring,
-      px: e.clientX - host.left,
-      py: e.clientY - host.top - this.offset,
+      px: clientX - host.left,
+      py: clientY - host.top - this.offset,
       label: zoneLabel(this.model(), this.round()!.scoringStyle, ring, this.current()),
     };
   }
@@ -485,6 +500,8 @@ export class EndInputPage {
   protected down(e: PointerEvent) {
     if (this.pointerId !== null || (e.target as HTMLElement).closest('button')) return;
     this.pointerId = e.pointerId;
+    this.wrap = e.currentTarget as HTMLElement;
+    this.lastPan = -Infinity;
     this.offset = e.pointerType === 'touch' ? TOUCH_OFFSET_PX : 0;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const z = this.zoomFactor();
@@ -514,6 +531,7 @@ export class EndInputPage {
     this.pointerId = null;
     this.placing.set(null);
     this.zoomCenter.set(null);
+    this.stopPan();
     this.trail = [];
     if (!p) return;
     // Points far outside the face count as a miss but keep their position.
@@ -523,15 +541,66 @@ export class EndInputPage {
     this.pointerId = null;
     this.placing.set(null);
     this.zoomCenter.set(null);
+    this.stopPan();
     this.trail = [];
   }
 
   private track(e: PointerEvent) {
-    const p = this.pointAt(e);
+    this.finger = { x: e.clientX, y: e.clientY };
+    this.record(e.timeStamp);
+    if (this.zoomCenter() && !this.panFrame && this.panDirection().some((d) => d !== 0)) {
+      this.panAt = performance.now();
+      this.panFrame = requestAnimationFrame((t) => this.pan(t));
+    }
+  }
+
+  private record(t: number) {
+    if (!this.finger) return;
+    const p = this.placeAt(this.finger.x, this.finger.y);
     this.placing.set(p);
     if (!p) return;
-    this.trail.push({ t: e.timeStamp, sx: e.clientX, sy: e.clientY, p });
+    this.trail.push({ t, sx: this.finger.x, sy: this.finger.y, p });
     if (this.trail.length > 30) this.trail.shift();
+  }
+
+  /** -1..1 per axis: how deep the arrow is in the edge zone of the visible face, and which side. */
+  private panDirection(): [number, number] {
+    if (!this.finger || !this.face()) return [0, 0];
+    const box = this.face()!.svg().nativeElement.getBoundingClientRect();
+    const ax = this.finger.x;
+    const ay = this.finger.y - this.offset;
+    const depth = (d: number) => Math.max(0, Math.min(1, 1 - d / EDGE_PX));
+    return [
+      depth(box.right - ax) - depth(ax - box.left),
+      depth(box.bottom - ay) - depth(ay - box.top),
+    ];
+  }
+
+  /** Scrolls the zoomed face towards the edge the arrow is near; the arrow moves along with it. */
+  private pan(now: number) {
+    this.panFrame = 0;
+    const c = this.zoomCenter();
+    const [dx, dy] = this.panDirection();
+    if (this.pointerId === null || !c || (dx === 0 && dy === 0)) return;
+    const dt = Math.min(0.05, (now - this.panAt) / 1000);
+    this.panAt = now;
+    const step = 2 * this.view() * PAN_SPEED * dt;
+    // Never scroll past the edge of the whole face.
+    const lim = Math.max(0, BASE_VIEW - this.view());
+    const clamp = (v: number) => Math.max(-lim, Math.min(lim, v));
+    const next = { x: clamp(c.x + dx * step), y: clamp(c.y + dy * step) };
+    if (next.x !== c.x || next.y !== c.y) {
+      this.zoomCenter.set(next);
+      this.lastPan = now;
+      this.record(now);
+    }
+    this.panFrame = requestAnimationFrame((t) => this.pan(t));
+  }
+
+  private stopPan() {
+    if (this.panFrame) cancelAnimationFrame(this.panFrame);
+    this.panFrame = 0;
+    this.finger = null;
   }
 
   /**
@@ -542,6 +611,8 @@ export class EndInputPage {
   private settled(e: PointerEvent): Placed | null {
     const last = this.trail.at(-1)?.p ?? this.pointAt(e);
     const cutoff = e.timeStamp - SLIP_MS;
+    // While the face was scrolling the arrow moved without the finger: keep where it got to.
+    if (this.lastPan > cutoff) return last;
     const held = [...this.trail].reverse().find((s) => s.t <= cutoff);
     if (!held) return last;
     const slip = Math.hypot(e.clientX - held.sx, e.clientY - held.sy);
