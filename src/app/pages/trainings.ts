@@ -7,6 +7,7 @@ import { Training } from '../core/models';
 import { live, Repo } from '../core/repo.service';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
+import { InstallCard } from '../ui/install-card';
 
 interface Row {
   t: Training;
@@ -17,7 +18,7 @@ interface Row {
 
 @Component({
   selector: 'app-trainings',
-  imports: [AppBar, RouterLink, Icon],
+  imports: [AppBar, RouterLink, Icon, InstallCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar title="ArrowPlot">
@@ -26,6 +27,7 @@ interface Row {
       /></a>
     </app-bar>
     <div class="page">
+      <app-install-card [compact]="true" />
       @if (loaded() && !groups().length) {
         <div class="empty">
           <img src="logo.svg" alt="" />

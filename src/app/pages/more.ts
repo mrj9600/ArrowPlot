@@ -12,15 +12,17 @@ import { Repo } from '../core/repo.service';
 import { applyTheme, getTheme, Theme } from '../core/theme';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
+import { InstallCard } from '../ui/install-card';
 import { APP_VERSION } from '../version';
 
 @Component({
   selector: 'app-more',
-  imports: [AppBar, RouterLink, Icon],
+  imports: [AppBar, RouterLink, Icon, InstallCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar title="More" />
     <div class="page">
+      <app-install-card />
       <div class="section-title">Import</div>
       <div class="card flush">
         <ul class="list">
