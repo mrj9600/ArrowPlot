@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- ArrowPlot logo. Full-bleed artwork; tools/make-icons.mjs derives the rounded and maskable variants. -->
+  <defs><clipPath id="tile"><rect width="512" height="512" rx="112"/></clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16405c"/>
+      <stop offset="1" stop-color="#0a1c2a"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="0.38" cy="0.3" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#tile)"><rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(256 256)">
+    <g filter="url(#drop)">
+      <circle r="196" fill="#f3efe6"/>
+      <circle r="157" fill="#1c2833"/>
+      <circle r="118" fill="#2b9fd8"/>
+      <circle r="79" fill="#e5463d"/>
+      <circle r="40" fill="#f7c843"/>
+    </g>
+    <g fill="none" stroke-width="2.5">
+      <circle r="176.5" stroke="#1c2833" stroke-opacity="0.35"/>
+      <circle r="137.5" stroke="#f3efe6" stroke-opacity="0.35"/>
+      <circle r="98.5" stroke="#1c2833" stroke-opacity="0.35"/>
+      <circle r="59.5" stroke="#1c2833" stroke-opacity="0.35"/>
+      <circle r="20" stroke="#1c2833" stroke-opacity="0.5"/>
+    </g>
+    <!-- spread ellipse of the group -->
+    <ellipse cx="10" cy="-8" rx="62" ry="44" transform="rotate(-28 10 -8)"
+             fill="#ffffff" fill-opacity="0.22" stroke="#ffffff" stroke-width="4" stroke-dasharray="12 9"/>
+    <!-- plotted arrow hits -->
+    <g fill="#0f1c26" stroke="#ffffff" stroke-width="5">
+      <circle cx="-16" cy="10" r="13"/>
+      <circle cx="34" cy="-30" r="13"/>
+      <circle cx="6" cy="20" r="13"/>
+      <circle cx="48" cy="4" r="13"/>
+      <circle cx="-28" cy="-28" r="13"/>
+      <circle cx="16" cy="-44" r="13"/>
+    </g>
+    <!-- group centre -->
+    <g stroke="#3ee08f" stroke-width="7" stroke-linecap="round">
+      <path d="M-10 -8H30M10 -28V12"/>
+    </g>
+    <circle r="196" fill="url(#shine)"/>
+  </g>
+</g></svg>
