@@ -226,6 +226,8 @@ interface Placed {
     }
     .target-wrap {
       position: relative;
+      /* Dragging on the face places the arrow; it must not scroll or zoom the page. */
+      touch-action: none;
       width: min(100%, calc(100dvh - 250px - var(--safe-top) - var(--safe-bottom)));
       margin: 0 auto;
       min-width: 260px;

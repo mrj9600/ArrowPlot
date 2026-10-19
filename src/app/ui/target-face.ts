@@ -137,7 +137,6 @@ interface DrawZone {
   styles: `
     :host {
       display: block;
-      touch-action: none;
       user-select: none;
       -webkit-user-select: none;
     }
