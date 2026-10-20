@@ -152,6 +152,9 @@ type Action = 'new' | 'positions' | 'skip';
                   @if (s.s.imported) {
                     <div class="sub warn">Already imported as “{{ s.s.imported.title }}”</div>
                   }
+                  @if (!s.s.imported && skippedBefore().has(s.s.sid)) {
+                    <div class="sub">Skipped last time</div>
+                  }
                   @if (s.s.match) {
                     <div class="sub good">Matches “{{ s.s.match.title }}” (scores only)</div>
                   }
@@ -223,6 +226,8 @@ export class ImportMantisPage {
   protected readonly arrows = signal<Arrow[]>([]);
   protected readonly sessions = signal<MantisSession[]>([]);
   protected readonly actions = signal<Record<string, Action>>({});
+  /** Sessions the user chose to skip in earlier imports; they start as Skip next time. */
+  protected readonly skippedBefore = signal(new Set<string>());
   protected readonly error = signal('');
   protected readonly done = signal('');
   protected readonly busy = signal(false);
@@ -282,6 +287,14 @@ export class ImportMantisPage {
   }
   protected setAction(sid: string, a: Action) {
     this.actions.update((m) => ({ ...m, [sid]: a }));
+    // Remember skips right away, so skipping everything and leaving also counts.
+    const s = this.sessions().find((x) => x.sid === sid);
+    if (!s || s.imported) return;
+    const next = new Set(this.skippedBefore());
+    if (a === 'skip') next.add(sid);
+    else next.delete(sid);
+    this.skippedBefore.set(next);
+    this.repo.setSetting('mantisSkipped', [...next]);
   }
   protected time(s: MantisSession) {
     return s.start.toTimeString().slice(0, 5);
@@ -299,9 +312,11 @@ export class ImportMantisPage {
       if (!sessions.length)
         throw new Error('No shots with a target position were found in this file.');
       await annotateSessions(sessions);
+      const skipped = new Set(await this.repo.getSetting<string[]>('mantisSkipped', []));
+      this.skippedBefore.set(skipped);
       const actions: Record<string, Action> = {};
       for (const s of sessions)
-        actions[s.sid] = s.imported ? 'skip' : s.match ? 'positions' : 'new';
+        actions[s.sid] = s.imported || skipped.has(s.sid) ? 'skip' : s.match ? 'positions' : 'new';
       this.actions.set(actions);
       this.sessions.set(sessions);
     } catch (err) {
