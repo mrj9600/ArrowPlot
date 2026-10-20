@@ -23,7 +23,6 @@
     "jszip": "^3.10.2",
     "rxjs": "~7.8.0",
     "sql.js": "^1.15.1",
-    "tesseract.js": "^7.0.0",
     "tslib": "^2.3.0"
   },
   "devDependencies": {

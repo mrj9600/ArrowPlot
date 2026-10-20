@@ -47,10 +47,6 @@ export const routes: Routes = [
   },
   { path: 'more', loadComponent: () => import('./pages/more').then((m) => m.MorePage) },
   {
-    path: 'lab/ocr',
-    loadComponent: () => import('./pages/ocr-lab').then((m) => m.OcrLabPage),
-  },
-  {
     path: 'import/archdps',
     loadComponent: () => import('./pages/import-archdps').then((m) => m.ImportArchDpsPage),
   },

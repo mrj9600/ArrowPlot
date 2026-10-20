@@ -39,9 +39,7 @@
             ],
             "allowedCommonJsDependencies": [
               "sql.js",
-              "jszip",
-              "tesseract.js",
-              "regenerator-runtime"
+              "jszip"
             ]
           },
           "configurations": {
