@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { f1, pct } from '../core/format';
 import { aimAdvice, Analysis, offsetText } from '../core/stats';
+import { centreGrid } from '../core/centre-distance';
 import { contrastOn, getTarget } from '../core/targets';
 import { FaceShot, GroupOverlay, TargetFace } from './target-face';
 
@@ -19,14 +20,18 @@ import { FaceShot, GroupOverlay, TargetFace } from './target-face';
             <div class="face">
               <app-target-face
                 [targetId]="targetId()"
+                [customModel]="grid()"
                 [scoringStyle]="styleIndex()"
                 [shots]="dots()"
                 [spot]="0"
                 [group]="showGroup() ? overlay() : null"
-                [arrowR]="a.positioned[0]?.arrowR ?? 0.012"
+                [arrowR]="(a.positioned[0]?.arrowR ?? 0.012) / (a.grid ?? 1)"
                 [view]="view()"
                 [minDot]="0.014"
               />
+              @if (grid(); as g) {
+                <div class="small muted">{{ g.name }}</div>
+              }
               <div class="seg" style="margin-top:8px">
                 <button type="button" [class.on]="!centred()" (click)="centred.set(false)">
                   As shot
@@ -64,7 +69,7 @@ import { FaceShot, GroupOverlay, TargetFace } from './target-face';
                 <div class="v">{{ f1(a.r50) }} cm</div>
                 <div class="h">half the arrows within this of the centre</div>
               </div>
-              <div class="stat">
+              <div class="stat" [hidden]="a.grid">
                 <div class="k">If centred</div>
                 <div class="v" [style.color]="a.centred > a.reached ? 'var(--good)' : null">
                   {{ a.centred - a.reached >= 0 ? '+' : '' }}{{ a.centred - a.reached }}
@@ -238,20 +243,26 @@ export class AnalysisView {
   protected readonly targetId = computed(() =>
     this.a()?.all[0] ? getTarget(this.a()!.all[0].targetId).singleSpotId : 0,
   );
+  /** 3D groups are drawn on distance rings in cm: the animals differ too much to use one. */
+  protected readonly grid = computed(() => (this.a()?.grid ? centreGrid(this.a()!.grid!) : null));
+  /** Face units per cm of the drawing. */
+  private readonly scale = computed(() => this.a()?.grid ?? this.a()?.rref ?? 20);
   protected readonly styleIndex = computed(() => this.a()?.all[0]?.style ?? 0);
   protected readonly showGroup = computed(() => !!this.a() && !this.a()!.noPos);
 
   protected readonly view = computed(() => {
     const a = this.a();
     if (!this.zoomed() || !a || !a.positioned.length) return 1.04;
-    const ext = Math.max(...a.positioned.map((s) => Math.hypot(s.x, s.y))) + 0.08;
+    const ext =
+      Math.max(...a.positioned.map((s) => Math.hypot(s.x * s.rcm, s.y * s.rcm) / this.scale())) +
+      0.08;
     return Math.min(1.04, Math.max(0.25, ext));
   });
 
   protected readonly overlay = computed<GroupOverlay | null>(() => {
     const a = this.a();
     if (!a || a.noPos) return null;
-    const R = a.rref;
+    const R = this.scale();
     const c = this.centred();
     return {
       mx: c ? 0 : a.mx / R,
@@ -268,13 +279,15 @@ export class AnalysisView {
   protected readonly dots = computed<FaceShot[]>(() => {
     const a = this.a();
     if (!a) return [];
-    const R = a.rref;
+    const R = this.scale();
     const c = this.centred();
     return a.positioned.map((s) => ({
       x: c ? (s.x * s.rcm - a.mx) / R : (s.x * s.rcm) / R,
       y: c ? (s.y * s.rcm - a.my) / R : (s.y * s.rcm) / R,
       index: s.index,
       ring: s.ring,
+      // On the grid, dots take the colour of the zone they hit on the animal.
+      color: a.grid ? (getTarget(s.targetId).zones[s.ring]?.fill ?? '#111') : undefined,
     }));
   });
 

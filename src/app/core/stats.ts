@@ -2,6 +2,7 @@
  * Group analysis, adapted from "Shot Group Printer": group centre, spread ellipse, R50/R90,
  * extreme spread, and the score the same arrows would make if the group were centred.
  */
+import { centreOffsetCm, gridRadius, usesCentreDistance } from './centre-distance';
 import { convert } from './dimension';
 import { End, NOT_ENTERED, Round } from './models';
 import {
@@ -37,6 +38,8 @@ export interface PlotShot {
   endKey: string;
   /** Only the first hit of the end counts (animal rounds). */
   firstHit: boolean;
+  /** 3D: x/y are cm from the aim centre (rcm 1), from the entered distance, not the drawing. */
+  inCm: boolean;
 }
 
 export interface Ellipse {
@@ -54,6 +57,8 @@ export interface Analysis {
   avg: number;
   /** All arrows come from rounds where only the first hit counts: averages are per target. */
   perEnd: boolean;
+  /** 3D only: draw the group on a distance grid of this radius in cm instead of the face. */
+  grid: number | null;
   /** Count per ring label, ordered best first. */
   rings: { label: string; count: number; points: number }[];
   best: { p: number; k: number; avg: number; pct: number }[];
@@ -85,20 +90,22 @@ export function plotShots(
   const arrowR = relativeArrowRadius(t, round.targetDiameter, sessionArrowDiameter);
   const distanceM = round.distance.unit ? convert(round.distance, 'm') : null;
   const firstHit = isFirstHitStyle(t, round.scoringStyle);
+  const inCm = usesCentreDistance(t);
   const out: PlotShot[] = [];
   for (const e of ends) {
     for (const s of e.shots) {
       if (s.ring === NOT_ENTERED) continue;
+      const p = inCm ? centreOffsetCm(t, round.targetDiameter, s) : s;
       out.push({
-        x: s.x,
-        y: s.y,
+        x: p.x,
+        y: p.y,
         ring: s.ring,
         label: zoneLabel(t, round.scoringStyle, s.ring, s.index),
         points: pointsFor(t, round.scoringStyle, s.ring, s.index),
         max: maxPointsPerShot(t, round.scoringStyle, s.index),
         positioned: e.exact,
-        rcm,
-        arrowR,
+        rcm: inCm ? 1 : rcm,
+        arrowR: inCm ? arrowR * rcm : arrowR,
         targetId: round.targetId,
         style: round.scoringStyle,
         index: s.index,
@@ -108,6 +115,7 @@ export function plotShots(
         roundId: round.id!,
         endKey: `${round.id}:${e.index}`,
         firstHit,
+        inCm,
       });
     }
   }
@@ -171,6 +179,10 @@ export function analyse(all: PlotShot[]): Analysis {
         ? reached / all.length
         : 0,
     perEnd,
+    grid:
+      pos.length && pos.every((s) => s.inCm)
+        ? gridRadius(Math.max(...pos.map((s) => Math.hypot(s.x, s.y))))
+        : null,
     rings,
     best: BEST.map((p) => {
       const k = Math.max(1, Math.ceil(all.length * p - 1e-9));
@@ -236,7 +248,8 @@ export function analyse(all: PlotShot[]): Analysis {
 
   // re-score positioned arrows with the group moved to the centre
   const centred = all.reduce((a, s) => {
-    if (!s.positioned) return a + s.points;
+    // 3D distances are rough and animals differ: re-scoring them would be guesswork.
+    if (!s.positioned || s.inCm) return a + s.points;
     const t = getTarget(s.targetId);
     const z = zoneAt(t, s.x - mx / s.rcm, s.y - my / s.rcm, s.arrowR);
     return a + pointsFor(t, s.style, z, s.index);

@@ -13,6 +13,12 @@ import { Router } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { Arrow, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
+import {
+  CENTRE_STEPS,
+  guessCentreCm,
+  nearestStep,
+  usesCentreDistance,
+} from '../core/centre-distance';
 import { endLimit, targetNumber, usesTargetNumbers } from '../core/numbering';
 import { nowTime, Repo } from '../core/repo.service';
 import {
@@ -92,7 +98,7 @@ interface Placed {
               [class.cur]="$index === current()"
               [style.background]="s.ring === -2 ? null : fillOf(s.ring)"
               [style.color]="s.ring === -2 ? null : inkOf(s.ring)"
-              (click)="current.set($index)"
+              (click)="pickShot($index)"
               [attr.aria-label]="'Arrow ' + ($index + 1)"
             >
               {{ $index >= notShotFrom() ? '–' : s.ring === -2 ? '' : label(s) }}
@@ -154,6 +160,23 @@ interface Placed {
               </button>
             }
           </div>
+        }
+
+        @if (distShot(); as d) {
+          <label class="dist">
+            <span class="small"
+              >Arrow {{ d.index + 1 }}: distance from centre <b>≈ {{ d.cm }} cm</b></span
+            >
+            <input
+              type="range"
+              min="0"
+              [max]="steps.length - 1"
+              step="1"
+              [value]="d.step"
+              (input)="setCm(+$any($event.target).value)"
+              [attr.aria-valuetext]="d.cm + ' cm'"
+            />
+          </label>
         }
 
         @if (session()?.arrowNumbering && shots()[current()]?.ring !== -2) {
@@ -316,6 +339,14 @@ interface Placed {
     .wrap {
       justify-self: end;
     }
+    .dist {
+      display: grid;
+      gap: 2px;
+    }
+    .dist input {
+      width: 100%;
+      accent-color: var(--accent, #1d4fa3);
+    }
     .numbers {
       display: grid;
       gap: 6px;
@@ -443,6 +474,16 @@ export class EndInputPage {
       ? firstHitEndComplete(this.model(), this.round()?.scoringStyle ?? 0, this.shots())
       : this.shots().length > 0 && this.shots().every((s) => s.ring !== NOT_ENTERED),
   );
+  /** 3D: the plotted arrow whose distance from the centre the slider sets. */
+  private readonly distIndex = signal<number | null>(null);
+  protected readonly steps = CENTRE_STEPS;
+  protected readonly distShot = computed(() => {
+    const i = this.distIndex();
+    const s = i === null ? null : this.shots()[i];
+    if (!s || !this.positioned()[i!] || !usesCentreDistance(this.model())) return null;
+    const cm = s.cm ?? 0;
+    return { index: i!, cm, step: nearestStep(cm) };
+  });
   protected readonly anyEntered = computed(() => this.shots().some((s) => s.ring !== NOT_ENTERED));
   /** The numbers chosen for this session, or 1 … N for the arrow set (at least 13). */
   protected readonly arrowNumbers = computed(
@@ -518,6 +559,7 @@ export class EndInputPage {
     this.comment.set(this.existing?.comment ?? '');
     const first = shots.findIndex((s) => s.ring === NOT_ENTERED);
     this.current.set(first < 0 ? 0 : first);
+    this.distIndex.set(null);
     const pref = await this.repo.getSetting<'plot' | 'keys'>('inputMode', 'plot');
     this.mode.set(
       this.existing &&
@@ -719,7 +761,13 @@ export class EndInputPage {
 
   private setShot(p: { x: number; y: number; ring: number }, positioned: boolean) {
     const i = this.current();
-    this.shots.update((l) => l.map((s, j) => (j === i ? { ...s, ...p } : s)));
+    const r = this.round()!;
+    const cm =
+      positioned && usesCentreDistance(this.model())
+        ? guessCentreCm(this.model(), r.targetDiameter, p.x, p.y)
+        : null;
+    this.shots.update((l) => l.map((s, j) => (j === i ? { ...s, ...p, cm } : s)));
+    this.distIndex.set(cm === null ? null : i);
     this.positioned.update((l) => l.map((v, j) => (j === i ? positioned : v)));
     if (navigator.vibrate) navigator.vibrate(8);
     if (this.firstHit() && pointsFor(this.model(), this.round()!.scoringStyle, p.ring, i) > 0) {
@@ -732,6 +780,18 @@ export class EndInputPage {
     }
     if (this.session()?.arrowNumbering) return; // stay so a number can be picked
     this.advance();
+  }
+
+  protected pickShot(i: number) {
+    this.current.set(i);
+    this.distIndex.set(i);
+  }
+
+  protected setCm(step: number) {
+    const i = this.distIndex();
+    if (i === null) return;
+    const cm = CENTRE_STEPS[step];
+    this.shots.update((l) => l.map((s, j) => (j === i ? { ...s, cm } : s)));
   }
 
   private advance() {

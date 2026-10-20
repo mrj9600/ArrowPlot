@@ -118,6 +118,8 @@ export interface Shot {
   /** Zone index, 0 = innermost. -1 = miss, -2 = not entered yet. */
   ring: number;
   arrowNumber?: string | null;
+  /** 3D faces: roughly how far from the centre the arrow sits, in cm (the plot gives direction). */
+  cm?: number | null;
 }
 
 export const MISS = -1;

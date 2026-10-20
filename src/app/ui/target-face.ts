@@ -16,6 +16,8 @@ export interface FaceShot {
   faded?: boolean;
   selected?: boolean;
   label?: string;
+  /** Dot colour, when it does not follow the drawn face's zones. */
+  color?: string;
 }
 
 /** Group overlay in face units (spot-relative). */
@@ -154,6 +156,8 @@ interface DrawZone {
 })
 export class TargetFace {
   readonly targetId = input(0);
+  /** Draws this face instead of the one for targetId (e.g. a distance grid). */
+  readonly customModel = input<TargetModel | null>(null);
   readonly scoringStyle = input(0);
   readonly shots = input<FaceShot[]>([]);
   /** Show only this spot of a multi-spot face; null shows the whole face. */
@@ -172,7 +176,9 @@ export class TargetFace {
   protected readonly pi = Math.PI;
   protected readonly max = Math.max;
 
-  protected readonly model = computed<TargetModel>(() => getTarget(this.targetId()));
+  protected readonly model = computed<TargetModel>(
+    () => this.customModel() ?? getTarget(this.targetId()),
+  );
   protected readonly single = computed(
     () => this.spot() !== null || this.model().faces.length === 1,
   );
@@ -212,7 +218,7 @@ export class TargetFace {
         return {
           cx: p.x,
           cy: p.y,
-          fill: shotColor(m, s.ring),
+          fill: s.color ?? shotColor(m, s.ring),
           faded: s.faded,
           selected: s.selected,
           label: s.label,
