@@ -13,7 +13,6 @@ import { dim } from '../core/dimension';
 import { Round, RoundTemplate, StandardRound } from '../core/models';
 import { usesTargetNumbers } from '../core/numbering';
 import { Repo } from '../core/repo.service';
-import { describeRound } from '../core/standard-rounds';
 import { AppBar } from '../ui/app-bar';
 import { RoundSettings } from '../ui/round-settings';
 
@@ -39,17 +38,8 @@ import { RoundSettings } from '../ui/round-settings';
           </select>
         </label>
       }
-      @if (parts(); as p) {
-        <div class="card parts">
-          @for (r of p; track $index) {
-            <span class="small">Round {{ $index + 1 }}: {{ describe(r) }}</span>
-          }
-          <span class="small muted">All {{ p.length }} parts are added to the session.</span>
-        </div>
-      } @else {
-        <div class="card"><app-round-settings [(value)]="tpl" /></div>
-      }
-      @if (numbered() && !parts()) {
+      <div class="card"><app-round-settings [(value)]="tpl" /></div>
+      @if (numbered()) {
         <label class="field card"
           ><span>Start at target</span>
           <input
@@ -87,12 +77,6 @@ import { RoundSettings } from '../ui/round-settings';
       </button>
     </div>
   `,
-  styles: `
-    .parts {
-      display: grid;
-      gap: 6px;
-    }
-  `,
 })
 export class RoundFormPage {
   readonly id = input<string>();
@@ -111,17 +95,11 @@ export class RoundFormPage {
   protected readonly comment = signal('');
   protected readonly backUrl = signal('/');
   private existing: Round | null = null;
-  protected readonly describe = describeRound;
 
   /** New round: the user's round definitions, and which one (or the last round, or custom) is picked. */
   protected readonly standards = signal<StandardRound[]>([]);
   protected readonly choice = signal<number | 'last' | 'custom'>('custom');
   protected last: RoundTemplate | null = null;
-  /** A definition with several parts adds them all, as when a session is created. */
-  protected readonly parts = computed(() => {
-    const s = this.standards().find((x) => x.id === this.choice());
-    return s && s.rounds.length > 1 ? s.rounds : null;
-  });
 
   constructor() {
     effect(() => {
@@ -172,7 +150,7 @@ export class RoundFormPage {
     this.choice.set(choice);
     this.start.set(1);
     const s = this.standards().find((x) => x.id === choice);
-    const tpl = choice === 'last' ? this.last : s?.rounds[0];
+    const tpl = choice === 'last' ? this.last : s?.round;
     if (tpl) this.tpl.set({ ...tpl });
   }
 
@@ -199,14 +177,10 @@ export class RoundFormPage {
       });
       this.router.navigate(['/round', this.existing.id], { replaceUrl: true });
     } else if (this.sessionId()) {
-      const sessionId = +this.sessionId()!;
-      let rid: number | undefined;
-      for (const part of this.parts() ?? [
-        { ...t, startTarget: this.numbered() ? this.start() : 1 },
-      ]) {
-        const id = await this.repo.addRound(sessionId, part);
-        rid ??= id;
-      }
+      const rid = await this.repo.addRound(+this.sessionId()!, {
+        ...t,
+        startTarget: this.numbered() ? this.start() : 1,
+      });
       await this.router.navigate(['/round', rid], { replaceUrl: true });
       this.router.navigate(['/round', rid, 'end', 0]);
     }

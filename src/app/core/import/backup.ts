@@ -8,7 +8,8 @@ import { db } from '../db';
 import { StoredImage } from '../models';
 
 const FORMAT = 'arrowplot-backup';
-const VERSION = 1;
+/** 2: a round definition holds one round (`round`) instead of a list (`rounds`). */
+const VERSION = 2;
 const TABLES = [
   'bows',
   'arrows',
@@ -86,6 +87,11 @@ async function parse(file: File): Promise<Parsed> {
     throw new Error('This backup was made by a newer version of ArrowPlot. Update the app first.');
   for (const t of TABLES)
     if (!Array.isArray(data[t])) throw new Error(`The backup is damaged (missing ${t}).`);
+  for (const s of data.standardRounds) {
+    s.round ??= s.rounds?.[0];
+    delete s.rounds;
+    if (!s.round) throw new Error('The backup is damaged (a round definition has no round).');
+  }
   const images: StoredImage[] = [];
   for (const meta of (data.images ?? []) as {
     id: number;

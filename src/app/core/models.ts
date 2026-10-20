@@ -158,7 +158,8 @@ export interface StandardRound {
   name: string;
   /** Organisation label, e.g. "World Archery". */
   club: string;
-  rounds: RoundTemplate[];
+  /** One round; a session shooting several (e.g. two distances) adds the next with Add round. */
+  round: RoundTemplate;
   builtIn: boolean;
   sourceRef?: string;
 }

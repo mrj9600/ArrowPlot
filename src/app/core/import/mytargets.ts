@@ -13,11 +13,11 @@ import {
   End,
   Round,
   Shot,
-  StandardRound,
   Session,
   WEATHER,
 } from '../models';
 import { EMPTY_SCORE, Repo } from '../repo.service';
+import { splitRoundDefinition } from '../standard-rounds';
 import { columns, getSql, query, Row, tables } from './sqlite';
 
 /**
@@ -310,19 +310,12 @@ export async function importMyTargets(
         res.arrows++;
       }
       const srMap = new Map<number, number>();
+      // ArrowPlot definitions hold one round: a MyTargets definition with several parts becomes
+      // one definition per distinct part. Its sessions link to the first.
       for (const [id, sr] of p.standardRounds) {
-        const ref = `mt:sr:${id}|${sr.row['name']}`;
-        const found = await db.standardRounds.where('sourceRef').equals(ref).first();
-        if (found) {
-          srMap.set(id, found.id!);
-          continue;
-        }
-        const s: StandardRound = {
-          name: str(sr.row['name']),
-          club: 'MyTargets',
-          builtIn: false,
-          sourceRef: ref,
-          rounds: sr.templates.map((t) => ({
+        const parts = splitRoundDefinition(
+          str(sr.row['name']),
+          sr.templates.map((t) => ({
             distance: parseDimension(str(t['distance'])),
             targetId: Number(t['targetId']),
             scoringStyle: Number(t['targetScoringStyleIndex']),
@@ -330,8 +323,20 @@ export async function importMyTargets(
             shotsPerEnd: Number(t['shotsPerEnd']),
             endCount: Number(t['endCount']),
           })),
-        };
-        srMap.set(id, await db.standardRounds.add(s));
+        );
+        for (const [i, part] of parts.entries()) {
+          const ref = `mt:sr:${id}:${i}|${part.name}`;
+          const found = await db.standardRounds.where('sourceRef').equals(ref).first();
+          const sid =
+            found?.id ??
+            (await db.standardRounds.add({
+              ...part,
+              club: 'MyTargets',
+              builtIn: false,
+              sourceRef: ref,
+            }));
+          if (i === 0) srMap.set(id, sid);
+        }
       }
 
       for (const t of p.sessions) {

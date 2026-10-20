@@ -24,6 +24,18 @@ export class ArrowPlotDb extends Dexie {
       standardRounds: '++id, name, sourceRef',
       settings: 'key',
     });
+    // Version 3: a round definition holds one round instead of a list.
+    this.version(3)
+      .stores({})
+      .upgrade((tx) =>
+        tx
+          .table('standardRounds')
+          .toCollection()
+          .modify((s: StandardRound & { rounds?: StandardRound['round'][] }) => {
+            s.round ??= s.rounds![0];
+            delete s.rounds;
+          }),
+      );
   }
 }
 

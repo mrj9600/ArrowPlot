@@ -68,73 +68,63 @@ interface LastSession {
             </select>
           </label>
           @if (selectedRound(); as s) {
-            @for (r of s.rounds; track $index; let i = $index) {
-              <div class="round-line">
-                <span class="small muted">
-                  {{ s.rounds.length > 1 ? 'Round ' + (i + 1) + ': ' : '' }}{{ describe(r) }}
-                </span>
-                <div class="round-inputs">
-                  @if (numbered(r)) {
-                    <label class="ends">
-                      <span class="small muted">Start at</span>
-                      <input
-                        class="input"
-                        type="number"
-                        inputmode="numeric"
-                        min="1"
-                        max="99"
-                        placeholder="1"
-                        [value]="(starts()[i] ?? 1) > 1 ? starts()[i] : ''"
-                        (input)="setStart(i, +$any($event.target).value)"
-                        [attr.aria-label]="
-                          'Start at target' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
-                        "
-                      />
-                    </label>
-                  }
+            <div class="round-line">
+              <span class="small muted">{{ describe(s.round) }}</span>
+              <div class="round-inputs">
+                @if (numbered(s.round)) {
                   <label class="ends">
-                    <span class="small muted">Distance</span>
-                    <input
-                      class="input"
-                      type="number"
-                      inputmode="decimal"
-                      min="0"
-                      step="any"
-                      placeholder="None"
-                      [value]="distances()[i]?.value > 0 ? distances()[i].value : ''"
-                      (input)="setDistance(i, +$any($event.target).value)"
-                      [attr.aria-label]="
-                        'Distance' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
-                      "
-                    />
-                    <select
-                      class="input unit"
-                      (change)="setUnit(i, $any($event.target).value)"
-                      aria-label="Distance unit"
-                    >
-                      <option value="m" [selected]="distances()[i]?.unit !== 'yd'">m</option>
-                      <option value="yd" [selected]="distances()[i]?.unit === 'yd'">yd</option>
-                    </select>
-                  </label>
-                  <label class="ends">
-                    <span class="small muted">Ends</span>
+                    <span class="small muted">Start at</span>
                     <input
                       class="input"
                       type="number"
                       inputmode="numeric"
-                      min="0"
+                      min="1"
                       max="99"
-                      placeholder="No limit"
-                      [value]="ends()[i] || ''"
-                      (input)="setEnds(i, +$any($event.target).value)"
-                      [attr.aria-label]="
-                        'Number of ends' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
-                      "
+                      placeholder="1"
+                      [value]="start() > 1 ? start() : ''"
+                      (input)="setStart(+$any($event.target).value)"
+                      aria-label="Start at target"
                     />
                   </label>
-                </div>
+                }
+                <label class="ends">
+                  <span class="small muted">Distance</span>
+                  <input
+                    class="input"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="any"
+                    placeholder="None"
+                    [value]="distance().value > 0 ? distance().value : ''"
+                    (input)="setDistance(+$any($event.target).value)"
+                    aria-label="Distance"
+                  />
+                  <select
+                    class="input unit"
+                    (change)="setUnit($any($event.target).value)"
+                    aria-label="Distance unit"
+                  >
+                    <option value="m" [selected]="distance().unit !== 'yd'">m</option>
+                    <option value="yd" [selected]="distance().unit === 'yd'">yd</option>
+                  </select>
+                </label>
+                <label class="ends">
+                  <span class="small muted">Ends</span>
+                  <input
+                    class="input"
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="99"
+                    placeholder="No limit"
+                    [value]="ends() || ''"
+                    (input)="setEnds(+$any($event.target).value)"
+                    aria-label="Number of ends"
+                  />
+                </label>
               </div>
-            }
+            </div>
             <span class="small muted" style="margin-top:-6px">
               Changes here apply to this session only. Leave Ends empty to shoot as many as you
               like.
@@ -285,12 +275,12 @@ export class SessionFormPage {
   protected readonly title = signal('');
   protected readonly date = signal(todayIso());
   protected readonly roundId = signal<number | null>(null);
-  /** Number of ends per round of the chosen definition; 0 = no limit. */
-  protected readonly ends = signal<number[]>([]);
-  /** Distance per round of the chosen definition; value -1 = no distance. */
-  protected readonly distances = signal<Dimension[]>([]);
-  /** 3D and field: the target each round starts at. */
-  protected readonly starts = signal<number[]>([]);
+  /** Number of ends for this session; 0 = no limit. */
+  protected readonly ends = signal(0);
+  /** Distance for this session; value -1 = no distance. */
+  protected readonly distance = signal<Dimension>(dim(-1, null));
+  /** 3D and field: the target the round starts at. */
+  protected readonly start = signal(1);
   protected readonly numbered = usesTargetNumbers;
   protected readonly bowId = signal<number | null>(null);
   protected readonly arrowId = signal<number | null>(null);
@@ -353,25 +343,22 @@ export class SessionFormPage {
 
   protected pickRound(id: number | null) {
     this.roundId.set(id);
-    this.ends.set(this.selectedRound()?.rounds.map((r) => r.endCount || 0) ?? []);
-    this.distances.set(this.selectedRound()?.rounds.map((r) => r.distance) ?? []);
-    this.starts.set(this.selectedRound()?.rounds.map(() => 1) ?? []);
+    const r = this.selectedRound()?.round;
+    this.ends.set(r?.endCount || 0);
+    this.distance.set(r?.distance ?? dim(-1, null));
+    this.start.set(1);
   }
-  protected setDistance(i: number, v: number) {
-    const unit = this.distances()[i]?.unit ?? 'm';
-    const d = isFinite(v) && v > 0 ? dim(v, unit) : dim(-1, null);
-    this.distances.update((l) => l.map((x, j) => (j === i ? d : x)));
+  protected setDistance(v: number) {
+    this.distance.set(isFinite(v) && v > 0 ? dim(v, this.distance().unit ?? 'm') : dim(-1, null));
   }
-  protected setUnit(i: number, unit: LengthUnit) {
-    this.distances.update((l) => l.map((x, j) => (j === i ? { ...x, unit } : x)));
+  protected setUnit(unit: LengthUnit) {
+    this.distance.update((d) => ({ ...d, unit }));
   }
-  protected setStart(i: number, v: number) {
-    const n = isFinite(v) && v >= 1 ? Math.min(99, Math.round(v)) : 1;
-    this.starts.update((l) => l.map((x, j) => (j === i ? n : x)));
+  protected setStart(v: number) {
+    this.start.set(isFinite(v) && v >= 1 ? Math.min(99, Math.round(v)) : 1);
   }
-  protected setEnds(i: number, v: number) {
-    const n = isFinite(v) ? Math.min(99, Math.max(0, Math.round(v))) : 0;
-    this.ends.update((l) => l.map((x, j) => (j === i ? n : x)));
+  protected setEnds(v: number) {
+    this.ends.set(isFinite(v) ? Math.min(99, Math.max(0, Math.round(v))) : 0);
   }
 
   protected toggle(n: string) {
@@ -419,7 +406,7 @@ export class SessionFormPage {
         return;
       }
       const sr = this.selectedRound();
-      if (!sr?.rounds.length) return;
+      if (!sr) return;
       const id = await this.repo.createSession(
         {
           ...base,
@@ -429,12 +416,14 @@ export class SessionFormPage {
           weather: null,
           source: 'manual',
         },
-        sr.rounds.map((r, i) => ({
-          ...r,
-          endCount: this.ends()[i] ?? r.endCount,
-          distance: this.distances()[i] ?? r.distance,
-          startTarget: this.starts()[i] ?? 1,
-        })),
+        [
+          {
+            ...sr.round,
+            endCount: this.ends(),
+            distance: this.distance(),
+            startTarget: this.start(),
+          },
+        ],
       );
       await this.repo.setSetting('lastSession', {
         bowId: this.bowId() ?? undefined,
