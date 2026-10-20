@@ -15,7 +15,10 @@ import { Arrow, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
 import { nowTime, Repo } from '../core/repo.service';
 import {
   contrastOn,
+  firstHitEndComplete,
   getTarget,
+  isFirstHitStyle,
+  pointsFor,
   relativeArrowRadius,
   scoreEnd,
   selectableZones,
@@ -81,13 +84,15 @@ interface Placed {
               type="button"
               class="ring"
               [class.empty]="s.ring === -2"
+              [class.not-shot]="$index >= notShotFrom()"
+              [disabled]="$index >= notShotFrom()"
               [class.cur]="$index === current()"
               [style.background]="s.ring === -2 ? null : fillOf(s.ring)"
               [style.color]="s.ring === -2 ? null : inkOf(s.ring)"
               (click)="current.set($index)"
               [attr.aria-label]="'Arrow ' + ($index + 1)"
             >
-              {{ s.ring === -2 ? '' : label(s) }}
+              {{ $index >= notShotFrom() ? '–' : s.ring === -2 ? '' : label(s) }}
               @if (s.arrowNumber) {
                 <sub>{{ s.arrowNumber }}</sub>
               }
@@ -213,6 +218,10 @@ interface Placed {
       font-size: 14px;
       cursor: pointer;
       position: relative;
+    }
+    .slots .ring.not-shot {
+      opacity: 0.35;
+      cursor: default;
     }
     .slots .ring.cur {
       outline: 3px solid var(--gold);
@@ -376,8 +385,23 @@ export class EndInputPage {
       .reduce((a, e) => a + scoreEnd(this.model(), r.scoringStyle, e.shots).reached, 0);
     return before + this.endScore().reached;
   });
-  protected readonly complete = computed(
-    () => this.shots().length > 0 && this.shots().every((s) => s.ring !== NOT_ENTERED),
+  /** Animal rounds: shooting stops at the first arrow that hits, and only that one scores. */
+  protected readonly firstHit = computed(() =>
+    isFirstHitStyle(this.model(), this.round()?.scoringStyle ?? 0),
+  );
+  /** First-hit ends: arrows after the scoring one are not shot. */
+  protected readonly notShotFrom = computed(() => {
+    if (!this.firstHit()) return Infinity;
+    const style = this.round()?.scoringStyle ?? 0;
+    const hit = this.shots().findIndex(
+      (s) => s.ring !== NOT_ENTERED && pointsFor(this.model(), style, s.ring, s.index) > 0,
+    );
+    return hit < 0 ? Infinity : hit + 1;
+  });
+  protected readonly complete = computed(() =>
+    this.firstHit()
+      ? firstHitEndComplete(this.model(), this.round()?.scoringStyle ?? 0, this.shots())
+      : this.shots().length > 0 && this.shots().every((s) => s.ring !== NOT_ENTERED),
   );
   protected readonly anyEntered = computed(() => this.shots().some((s) => s.ring !== NOT_ENTERED));
   /** The numbers chosen for this session, or 1 … N for the arrow set (at least 13). */
@@ -648,6 +672,14 @@ export class EndInputPage {
     this.shots.update((l) => l.map((s, j) => (j === i ? { ...s, ...p } : s)));
     this.positioned.update((l) => l.map((v, j) => (j === i ? positioned : v)));
     if (navigator.vibrate) navigator.vibrate(8);
+    if (this.firstHit() && pointsFor(this.model(), this.round()!.scoringStyle, p.ring, i) > 0) {
+      // A hit ends a first-hit end: later arrows are not shot.
+      this.shots.update((l) =>
+        l.map((s, j) => (j > i ? { index: j, x: 0, y: 0, ring: NOT_ENTERED } : s)),
+      );
+      this.positioned.update((l) => l.map((v, j) => (j > i ? false : v)));
+      return;
+    }
     if (this.session()?.arrowNumbering) return; // stay so a number can be picked
     this.advance();
   }

@@ -1,7 +1,9 @@
 import { dim } from './dimension';
 import { MISS, NOT_ENTERED, Shot } from './models';
 import {
+  firstHitEndComplete,
   getTarget,
+  isFirstHitStyle,
   relativeArrowRadius,
   scoreEnd,
   selectableZones,
@@ -101,5 +103,23 @@ describe('targets', () => {
     expect(getTarget(5).faces.length).toBe(3);
     expect(getTarget(11).faces.length).toBe(5);
     expect(getTarget(27).faces.length).toBe(6);
+  });
+
+  it('finishes first-hit ends at the first scoring arrow', () => {
+    const ifaa = getTarget(20);
+    const end = (rings: number[]) => rings.map((r, i) => shot(i, r));
+    expect(isFirstHitStyle(ifaa, 0)).toBe(true);
+    expect(isFirstHitStyle(full, 0)).toBe(false);
+    // Hit with the first arrow: done, the other two are not shot.
+    expect(firstHitEndComplete(ifaa, 0, end([0, NOT_ENTERED, NOT_ENTERED]))).toBe(true);
+    // Miss, then a hit: done.
+    expect(firstHitEndComplete(ifaa, 0, end([MISS, 1, NOT_ENTERED]))).toBe(true);
+    // Hit entered for arrow 2 but arrow 1 missing: not done.
+    expect(firstHitEndComplete(ifaa, 0, end([NOT_ENTERED, 1, NOT_ENTERED]))).toBe(false);
+    // Three misses: done; two misses: not yet.
+    expect(firstHitEndComplete(ifaa, 0, end([MISS, MISS, MISS]))).toBe(true);
+    expect(firstHitEndComplete(ifaa, 0, end([MISS, MISS, NOT_ENTERED]))).toBe(false);
+    // Second arrow in the body: 14 points.
+    expect(scoreEnd(ifaa, 0, end([MISS, 1, NOT_ENTERED])).reached).toBe(14);
   });
 });

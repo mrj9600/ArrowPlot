@@ -9,7 +9,7 @@ import { formatDimension } from '../core/dimension';
 import { avg, pct } from '../core/format';
 import { End, NOT_ENTERED, Shot } from '../core/models';
 import { Repo } from '../core/repo.service';
-import { contrastOn, getTarget, scoreEnd, zoneLabel } from '../core/targets';
+import { contrastOn, getTarget, isFirstHitStyle, scoreEnd, zoneLabel } from '../core/targets';
 import { AnalysisView } from '../ui/analysis-view';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
@@ -175,7 +175,11 @@ export class RoundDetailPage {
     return this.ends().map((end) => {
       const s = scoreEnd(m, r.scoringStyle, end.shots);
       cum += s.reached;
-      const pills = end.shots.map((sh: Shot) => {
+      // First-hit ends: leave out the arrows that were not shot after the hit.
+      const shown = isFirstHitStyle(m, r.scoringStyle)
+        ? end.shots.filter((sh) => sh.ring !== NOT_ENTERED)
+        : end.shots;
+      const pills = shown.map((sh: Shot) => {
         const fill =
           sh.ring === NOT_ENTERED
             ? 'transparent'

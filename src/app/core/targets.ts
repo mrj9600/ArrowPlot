@@ -689,6 +689,24 @@ export interface EndScore {
   total: number;
 }
 
+/** Animal-round styles: up to N arrows, only the first one that hits scores. */
+export function isFirstHitStyle(t: TargetModel, styleIndex: number): boolean {
+  return getStyle(t, styleIndex).points.length > 1;
+}
+
+/**
+ * Whether a first-hit end is finished: it stops at the first arrow that scores, which needs all
+ * arrows before it entered (as misses); an end without a hit needs every arrow.
+ */
+export function firstHitEndComplete(t: TargetModel, styleIndex: number, shots: Shot[]): boolean {
+  if (!shots.length) return false;
+  for (const sh of [...shots].sort((a, b) => a.index - b.index)) {
+    if (sh.ring === NOT_ENTERED) return false;
+    if (pointsFor(t, styleIndex, sh.ring, sh.index) > 0) return true;
+  }
+  return true;
+}
+
 /**
  * Score of one end. Normal styles add every arrow. Animal-round styles score only the first arrow
  * that hits, at the value for its arrow number, out of the first arrow's maximum.
