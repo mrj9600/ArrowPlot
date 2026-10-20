@@ -10,9 +10,10 @@ import {
 import { Router } from '@angular/router';
 import { db } from '../core/db';
 import { dim } from '../core/dimension';
-import { Round, RoundTemplate } from '../core/models';
+import { Round, RoundTemplate, StandardRound } from '../core/models';
 import { usesTargetNumbers } from '../core/numbering';
 import { Repo } from '../core/repo.service';
+import { describeRound } from '../core/standard-rounds';
 import { AppBar } from '../ui/app-bar';
 import { RoundSettings } from '../ui/round-settings';
 
@@ -24,8 +25,31 @@ import { RoundSettings } from '../ui/round-settings';
   template: `
     <app-bar [title]="id() ? 'Edit round' : 'New round'" [back]="backUrl()" />
     <div class="page">
-      <div class="card"><app-round-settings [(value)]="tpl" /></div>
-      @if (numbered()) {
+      @if (!id()) {
+        <label class="field card"
+          ><span>Round</span>
+          <select class="input" (change)="pick($any($event.target).value)">
+            @if (last) {
+              <option value="last" [selected]="choice() === 'last'">Same as last round</option>
+            }
+            @for (s of standards(); track s.id) {
+              <option [value]="s.id" [selected]="choice() === s.id">{{ s.name }}</option>
+            }
+            <option value="custom" [selected]="choice() === 'custom'">Custom</option>
+          </select>
+        </label>
+      }
+      @if (parts(); as p) {
+        <div class="card parts">
+          @for (r of p; track $index) {
+            <span class="small">Round {{ $index + 1 }}: {{ describe(r) }}</span>
+          }
+          <span class="small muted">All {{ p.length }} parts are added to the session.</span>
+        </div>
+      } @else {
+        <div class="card"><app-round-settings [(value)]="tpl" /></div>
+      }
+      @if (numbered() && !parts()) {
         <label class="field card"
           ><span>Start at target</span>
           <input
@@ -63,6 +87,12 @@ import { RoundSettings } from '../ui/round-settings';
       </button>
     </div>
   `,
+  styles: `
+    .parts {
+      display: grid;
+      gap: 6px;
+    }
+  `,
 })
 export class RoundFormPage {
   readonly id = input<string>();
@@ -81,6 +111,17 @@ export class RoundFormPage {
   protected readonly comment = signal('');
   protected readonly backUrl = signal('/');
   private existing: Round | null = null;
+  protected readonly describe = describeRound;
+
+  /** New round: the user's round definitions, and which one (or the last round, or custom) is picked. */
+  protected readonly standards = signal<StandardRound[]>([]);
+  protected readonly choice = signal<number | 'last' | 'custom'>('custom');
+  protected last: RoundTemplate | null = null;
+  /** A definition with several parts adds them all, as when a session is created. */
+  protected readonly parts = computed(() => {
+    const s = this.standards().find((x) => x.id === this.choice());
+    return s && s.rounds.length > 1 ? s.rounds : null;
+  });
 
   constructor() {
     effect(() => {
@@ -106,19 +147,33 @@ export class RoundFormPage {
       });
     } else if (sessionId) {
       this.backUrl.set(`/session/${sessionId}`);
-      const rounds = await this.repo.roundsOf(+sessionId);
+      const [rounds, standards] = await Promise.all([
+        this.repo.roundsOf(+sessionId),
+        this.repo.standardRounds(),
+      ]);
+      this.standards.set(standards);
       const last = rounds.at(-1);
-      if (last) {
-        this.tpl.set({
-          distance: last.distance,
-          targetId: last.targetId,
-          scoringStyle: last.scoringStyle,
-          targetDiameter: last.targetDiameter,
-          shotsPerEnd: last.shotsPerEnd,
-          endCount: last.maxEndCount ?? 0,
-        });
-      }
+      this.last = last
+        ? {
+            distance: last.distance,
+            targetId: last.targetId,
+            scoringStyle: last.scoringStyle,
+            targetDiameter: last.targetDiameter,
+            shotsPerEnd: last.shotsPerEnd,
+            endCount: last.maxEndCount ?? 0,
+          }
+        : null;
+      this.pick(this.last ? 'last' : standards.length ? String(standards[0].id) : 'custom');
     }
+  }
+
+  protected pick(v: string) {
+    const choice = v === 'last' || v === 'custom' ? v : +v;
+    this.choice.set(choice);
+    this.start.set(1);
+    const s = this.standards().find((x) => x.id === choice);
+    const tpl = choice === 'last' ? this.last : s?.rounds[0];
+    if (tpl) this.tpl.set({ ...tpl });
   }
 
   /** 3D and field: the target the round starts at. */
@@ -144,10 +199,14 @@ export class RoundFormPage {
       });
       this.router.navigate(['/round', this.existing.id], { replaceUrl: true });
     } else if (this.sessionId()) {
-      const rid = await this.repo.addRound(+this.sessionId()!, {
-        ...t,
-        startTarget: this.numbered() ? this.start() : 1,
-      });
+      const sessionId = +this.sessionId()!;
+      let rid: number | undefined;
+      for (const part of this.parts() ?? [
+        { ...t, startTarget: this.numbered() ? this.start() : 1 },
+      ]) {
+        const id = await this.repo.addRound(sessionId, part);
+        rid ??= id;
+      }
       await this.router.navigate(['/round', rid], { replaceUrl: true });
       this.router.navigate(['/round', rid, 'end', 0]);
     }
