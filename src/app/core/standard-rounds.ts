@@ -1,5 +1,5 @@
 import { dim, formatDimension } from './dimension';
-import { getTarget } from './targets';
+import { faceLabel } from './targets';
 import { LengthUnit, RoundTemplate, StandardRound } from './models';
 
 const r = (
@@ -67,11 +67,7 @@ export const BUILT_IN_ROUNDS: Omit<StandardRound, 'id'>[] = [
 /** One line per round, e.g. "18 m · WA full face 40cm · 10 × 3 arrows". */
 export function describeRound(r: RoundTemplate): string {
   const ends = r.endCount ? `${r.endCount} × ${r.shotsPerEnd}` : `open × ${r.shotsPerEnd}`;
-  return [
-    formatDimension(r.distance),
-    `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`,
-    `${ends} arrows`,
-  ]
+  return [formatDimension(r.distance), faceLabel(r.targetId, r.targetDiameter), `${ends} arrows`]
     .filter(Boolean)
     .join(' · ');
 }
@@ -87,14 +83,12 @@ export function arrowCount(s: StandardRound): number | null {
 export function summarizeRound(s: StandardRound): string {
   const uniq = (l: string[]) => [...new Set(l)];
   const dists = uniq(s.rounds.map((r) => formatDimension(r.distance)).filter(Boolean)).join(' / ');
-  const faces = uniq(
-    s.rounds.map((r) => `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`),
-  ).join(' / ');
+  const faces = uniq(s.rounds.map((r) => faceLabel(r.targetId, r.targetDiameter))).join(' / ');
   const n = arrowCount(s);
   return [dists, faces, n ? `${n} arrows` : 'open-ended'].filter(Boolean).join(' · ');
 }
 
 /** A round's face and arrows per end, e.g. "WA full face 40cm · 3 arrows per end". */
 export function describeRoundSetup(r: RoundTemplate): string {
-  return `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)} · ${r.shotsPerEnd} arrows per end`;
+  return `${faceLabel(r.targetId, r.targetDiameter)} · ${r.shotsPerEnd} arrows per end`;
 }

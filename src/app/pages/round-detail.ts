@@ -9,7 +9,14 @@ import { formatDimension } from '../core/dimension';
 import { avg, pct } from '../core/format';
 import { End, NOT_ENTERED, Shot } from '../core/models';
 import { Repo } from '../core/repo.service';
-import { contrastOn, getTarget, isFirstHitStyle, scoreEnd, zoneLabel } from '../core/targets';
+import {
+  contrastOn,
+  faceLabel,
+  getTarget,
+  isFirstHitStyle,
+  scoreEnd,
+  zoneLabel,
+} from '../core/targets';
 import { AnalysisView } from '../ui/analysis-view';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
@@ -150,7 +157,7 @@ export class RoundDetailPage {
   protected readonly faceName = computed(() => {
     const r = this.round();
     return r
-      ? `${this.model().name} ${formatDimension(r.targetDiameter)} · ${this.model().styles[r.scoringStyle]?.name ?? ''}`
+      ? `${faceLabel(r.targetId, r.targetDiameter)} · ${this.model().styles[r.scoringStyle]?.name ?? ''}`
       : '';
   });
   protected readonly canAdd = computed(() => {

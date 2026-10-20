@@ -9,13 +9,15 @@
  * scoring zones (zone 0 = innermost) and the order of their scoring styles, because backups store
  * shots as (target id, style index, zone index).
  */
-import { convert, dim } from './dimension';
+import { convert, dim, formatDimension } from './dimension';
 import { Dimension, MISS, NOT_ENTERED, Shot } from './models';
 
 export type TargetKind = 'target' | 'field' | '3d';
 
 interface ZoneBase {
   fill: string;
+  /** Shown on 3D and animal faces, where zones are not plain rings (e.g. "Vital", "Body"). */
+  name?: string;
   /** Colour of the zone's outer line, or null for no visible line. */
   line: string | null;
 }
@@ -238,9 +240,40 @@ const cm = (...v: number[]) => v.map((x) => dim(x, 'cm'));
 const SIZES_3D = [-6, -5, -4, -3, -2].map((v) => dim(v, null));
 const SIZES_ANIMAL = [-5, -4, -3, -2].map((v) => dim(v, null));
 
+/**
+ * "Yellow 12 · 10 ring 10 · Vital 8 · Body 5" from named zones. Zones sharing a name (or a small
+ * spot and the ring around it) with the same points are listed once.
+ */
+function namedStyleName(zones: Zone[], s: ScoringStyle): string {
+  const pts = (z: number) => s.points.map((row) => row[z]).join('/');
+  const groups = new Map<string, { full: string; pts: string }[]>();
+  zones.forEach((z, i) => {
+    const base = z.name!.replace(/^Small (\w)/, (_, c: string) => c.toUpperCase());
+    let g = groups.get(base);
+    if (!g) groups.set(base, (g = []));
+    g.push({ full: z.name!, pts: pts(i) });
+  });
+  const parts: string[] = [];
+  for (const [base, g] of groups) {
+    if (new Set(g.map((x) => x.pts)).size === 1) {
+      parts.push(`${base} ${g[0].pts}`);
+      continue;
+    }
+    for (const x of g) {
+      const text = `${x.full} ${x.pts}`;
+      if (!parts.includes(text)) parts.push(text);
+    }
+  }
+  const arrows = ['1st', '2nd', '3rd'].slice(0, s.points.length).join('/');
+  return (s.points.length > 1 ? `${arrows} arrow: ` : '') + parts.join(' · ');
+}
+
 function face(
   m: Partial<TargetModel> & Pick<TargetModel, 'id' | 'name' | 'zones' | 'styles' | 'diameters'>,
 ): TargetModel {
+  const styles = m.zones.every((z) => z.name)
+    ? m.styles.map((s) => ({ ...s, name: namedStyleName(m.zones, s) }))
+    : m.styles;
   return {
     kind: 'target',
     realSizeFactor: 1,
@@ -248,6 +281,7 @@ function face(
     faces: [{ x: 0, y: 0 }],
     singleSpotId: m.id,
     ...m,
+    styles,
   };
 }
 
@@ -285,19 +319,25 @@ const nfaaFieldZones = (lines: boolean) => [
 ];
 
 /** Stylised 3D animal: body, heart-shaped vital area drawn as an ellipse, 10 ring and kill spots. */
-const BODY_ZONE = ellipse(1, 0.72, BODY, '#6b5039');
-const VITAL = ellipse(0.62, 0.5, TAN, INK, 0.05, 0.05);
-const TEN = circle(0.34, BLUE, INK, 0.05, 0.05);
-const spotPair = (r: number, colour: string, at: [number, number]) =>
-  circle(r, colour, INK, at[0], at[1]);
+const named = (z: Zone, name: string): Zone => ({ ...z, name });
+const BODY_ZONE = named(ellipse(1, 0.72, BODY, '#6b5039'), 'Body');
+const VITAL = named(ellipse(0.62, 0.5, TAN, INK, 0.05, 0.05), 'Vital');
+const TEN = named(circle(0.34, BLUE, INK, 0.05, 0.05), '10 ring');
+const COLOUR_NAME: Record<string, string> = { [GOLD]: 'Yellow', [RED]: 'Red', [GREEN]: 'Green' };
+/** A kill spot: small ones are "Small yellow" etc., the larger ring around it just "Yellow". */
+const spotPair = (r: number, colour: string, at: [number, number]) => {
+  const n = COLOUR_NAME[colour] ?? 'Spot';
+  return named(circle(r, colour, INK, at[0], at[1]), r < 0.08 ? `Small ${n.toLowerCase()}` : n);
+};
 const CENTRE: [number, number] = [0.05, 0.05];
 const UPPER: [number, number] = [0.05, -0.17];
 const LOWER: [number, number] = [0.05, 0.27];
 const OFFSIDE: [number, number] = [-0.62, -0.42];
 
 /** Animal faces: oval vital area on the animal outline. */
-const ANIMAL_BODY = ellipse(1, 0.75, LIGHT, '#999');
-const ANIMAL_VITAL = ellipse(0.55, 0.38, ORANGE, INK);
+const ANIMAL_BODY = named(ellipse(1, 0.75, LIGHT, '#999'), 'Body');
+const ANIMAL_VITAL = named(ellipse(0.55, 0.38, ORANGE, INK), 'Vital');
+const ANIMAL_SPOT = named(circle(0.15, '#ffe500'), 'Spot');
 
 export const TARGETS: TargetModel[] = [
   face({ id: 0, name: 'WA full face', ...full, diameters: cm(40, 60, 80, 92, 122), ...waCommon }),
@@ -533,7 +573,7 @@ export const TARGETS: TargetModel[] = [
     id: 21,
     name: 'NFAA animal',
     kind: '3d',
-    zones: [circle(0.15, '#ffe500'), ANIMAL_VITAL, ANIMAL_BODY],
+    zones: [ANIMAL_SPOT, ANIMAL_VITAL, ANIMAL_BODY],
     styles: [
       animalStyle([
         [21, 20, 18],
@@ -563,7 +603,7 @@ export const TARGETS: TargetModel[] = [
     id: 22,
     name: 'NFAS field',
     kind: 'field',
-    zones: [circle(0.15, '#ffe500'), ANIMAL_VITAL, ANIMAL_BODY],
+    zones: [ANIMAL_SPOT, ANIMAL_VITAL, ANIMAL_BODY],
     styles: [
       animalStyle([
         [24, 20, 16],
@@ -630,7 +670,7 @@ export const TARGETS: TargetModel[] = [
     id: 100,
     name: '3D (10-8-5)',
     kind: '3d',
-    zones: [circle(0.2, RED, INK, 0.05, 0.05), VITAL, BODY_ZONE],
+    zones: [named(circle(0.2, RED, INK, 0.05, 0.05), 'Kill'), VITAL, BODY_ZONE],
     styles: [
       style(null, false, [10, 8, 5]),
       // Two arrows, only the first hit counts (10/8/5, then 7/5/2).
@@ -646,7 +686,7 @@ export const TARGETS: TargetModel[] = [
     name: '3D (5-3, body -1)',
     kind: '3d',
     // A body hit or a miss costs a point; misses are entered as the body zone.
-    zones: [circle(0.2, RED, INK, 0.05, 0.05), VITAL, BODY_ZONE],
+    zones: [named(circle(0.2, RED, INK, 0.05, 0.05), 'Kill'), VITAL, BODY_ZONE],
     styles: [style(null, false, [5, 3, -1])],
     diameters: SIZES_3D,
   }),
@@ -662,6 +702,20 @@ export const TARGET_PICKER_ORDER = [
 
 export function getTarget(id: number): TargetModel {
   return BY_ID.get(id) ?? BY_ID.get(0)!;
+}
+
+/** Faces with real sizes (cm/in); 3D and animal faces have none to choose. */
+export function hasFaceSizes(t: TargetModel): boolean {
+  return t.diameters.some((d) => d.unit !== null);
+}
+
+/** Size used for faces without real sizes (3D and animal faces). */
+export const FIXED_3D_SIZE = dim(-4, null);
+
+/** "WA full face 40cm", or just "IBO 3D" for faces without a size. */
+export function faceLabel(targetId: number, diameter: Dimension): string {
+  const size = formatDimension(diameter);
+  return size ? `${getTarget(targetId).name} ${size}` : getTarget(targetId).name;
 }
 
 export function getStyle(t: TargetModel, styleIndex: number): ScoringStyle {
@@ -783,6 +837,8 @@ export interface SelectableZone {
   label: string;
   points: number;
   fill: string;
+  /** Names of the zones this button stands for, on faces with named zones ("Yellow / Red"). */
+  name?: string;
 }
 
 /** Keypad buttons, best first; zones that read the same (e.g. X and 10 without X) share a button. */
@@ -792,11 +848,19 @@ export function selectableZones(t: TargetModel, styleIndex: number, arrow = 0): 
   for (const ring of rings) {
     const label = zoneLabel(t, styleIndex, ring, arrow);
     if (out.some((z) => z.label === label)) continue;
+    const names = [
+      ...new Set(
+        t.zones
+          .filter((z, i) => z.name && zoneLabel(t, styleIndex, i, arrow) === label)
+          .map((z) => z.name!.replace(/^Small (\w)/, (_, c: string) => c.toUpperCase())),
+      ),
+    ];
     out.push({
       ring,
       label,
       points: pointsFor(t, styleIndex, ring, arrow),
       fill: ring === MISS ? '#9aa3ab' : t.zones[ring].fill,
+      name: names.length ? names.join(' / ') : undefined,
     });
   }
   return out;

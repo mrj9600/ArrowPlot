@@ -13,14 +13,6 @@ const FACTOR: Record<LengthUnit, number> = {
 /** Nominal body size of 3D animals per size class, in cm (used only to size the drawing). */
 const NOMINAL_3D_CM: Record<number, number> = { [-6]: 25, [-5]: 40, [-4]: 60, [-3]: 80, [-2]: 100 };
 
-const SIZE_NAMES: Record<number, string> = {
-  [-6]: 'Mini',
-  [-5]: 'Small',
-  [-4]: 'Medium',
-  [-3]: 'Large',
-  [-2]: 'Extra large',
-};
-
 export const dim = (value: number, unit: LengthUnit | null): Dimension => ({ value, unit });
 
 /** Parses MyTargets' "<value> <unit>" strings, e.g. "18.0 m", "-4.0 null". */
@@ -37,7 +29,8 @@ export function formatDimension(d: Dimension | null | undefined): string {
   if (!d) return '';
   // -1 means not recorded (e.g. imported sessions without a distance): show nothing.
   if (d.value === -1) return '';
-  if (d.unit === null) return SIZE_NAMES[Math.round(d.value)] ?? '';
+  // Unitless 3D size classes are not shown: a 3D round has animals of every size.
+  if (d.unit === null) return '';
   const v = Math.round(d.value * 10) / 10;
   return `${v}${d.unit === 'm' || d.unit === 'yd' ? ' ' : ''}${d.unit}`;
 }

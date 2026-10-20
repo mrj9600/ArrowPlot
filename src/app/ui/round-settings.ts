@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, model } from '@angular/core';
 import { dim, formatDimension, sameDimension } from '../core/dimension';
 import { LengthUnit, RoundTemplate } from '../core/models';
-import { getTarget, TARGET_PICKER_ORDER } from '../core/targets';
+import { FIXED_3D_SIZE, getTarget, hasFaceSizes, TARGET_PICKER_ORDER } from '../core/targets';
 import { TargetFace } from './target-face';
 
 /** Distance, face, scoring and end layout of one round. */
@@ -28,15 +28,17 @@ import { TargetFace } from './target-face';
           </select>
         </label>
         <div class="grid2">
-          <label class="field">
-            <span>Face size</span>
-            <select class="input" (change)="setDiameter(+$any($event.target).value)">
-              @for (d of model().diameters; track $index) {
-                <option [value]="$index" [selected]="isDiameter(d)">{{ fmt(d) }}</option>
-              }
-            </select>
-          </label>
-          <label class="field">
+          @if (hasSizes()) {
+            <label class="field">
+              <span>Face size</span>
+              <select class="input" (change)="setDiameter(+$any($event.target).value)">
+                @for (d of model().diameters; track $index) {
+                  <option [value]="$index" [selected]="isDiameter(d)">{{ fmt(d) }}</option>
+                }
+              </select>
+            </label>
+          }
+          <label class="field" [style.grid-column]="hasSizes() ? null : '1 / -1'">
             <span>Scoring</span>
             <select class="input" (change)="patch({ scoringStyle: +$any($event.target).value })">
               @for (s of model().styles; track $index) {
@@ -133,6 +135,7 @@ export class RoundSettings {
   protected readonly targets = TARGET_PICKER_ORDER.map(getTarget);
   protected readonly units: LengthUnit[] = ['m', 'yd'];
   protected readonly model = computed(() => getTarget(this.value().targetId));
+  protected readonly hasSizes = computed(() => hasFaceSizes(this.model()));
   protected readonly fmt = formatDimension;
 
   protected clamp(v: number, lo: number, hi: number) {
@@ -150,7 +153,7 @@ export class RoundSettings {
     const keep = t.diameters.find((d) => sameDimension(d, v.targetDiameter));
     this.patch({
       targetId: id,
-      targetDiameter: keep ?? t.diameters[0],
+      targetDiameter: hasFaceSizes(t) ? (keep ?? t.diameters[0]) : FIXED_3D_SIZE,
       scoringStyle: v.scoringStyle < t.styles.length ? v.scoringStyle : 0,
     });
   }

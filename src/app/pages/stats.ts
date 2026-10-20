@@ -6,7 +6,7 @@ import { f1, fmtDate, pct } from '../core/format';
 import { Arrow, Bow, Dimension, End, Round, Session } from '../core/models';
 import { live } from '../core/repo.service';
 import { analyse, plotShots, PlotShot } from '../core/stats';
-import { getTarget } from '../core/targets';
+import { faceLabel } from '../core/targets';
 import { AnalysisView } from '../ui/analysis-view';
 import { AppBar } from '../ui/app-bar';
 import { ChartPoint, LineChart } from '../ui/line-chart';
@@ -213,10 +213,7 @@ export class StatsPage {
       const key = this.faceKeyOf(r);
       const e = seen.get(key) ?? {
         key,
-        label: [
-          formatDimension(r.distance),
-          `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`,
-        ]
+        label: [formatDimension(r.distance), faceLabel(r.targetId, r.targetDiameter)]
           .filter(Boolean)
           .join(' · '),
         n: 0,

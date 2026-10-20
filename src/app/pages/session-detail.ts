@@ -8,7 +8,7 @@ import { formatDimension } from '../core/dimension';
 import { avg, fmtDate, pct } from '../core/format';
 import { Round } from '../core/models';
 import { Repo } from '../core/repo.service';
-import { getTarget } from '../core/targets';
+import { faceLabel } from '../core/targets';
 import { AnalysisView } from '../ui/analysis-view';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
@@ -193,7 +193,7 @@ export class SessionDetailPage {
   });
 
   protected face(r: Round) {
-    return `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`;
+    return faceLabel(r.targetId, r.targetDiameter);
   }
   protected endsText(r: Round) {
     const n = this.b()?.ends.get(r.id!)?.length ?? 0;

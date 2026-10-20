@@ -15,6 +15,7 @@ import { Arrow, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
 import { nowTime, Repo } from '../core/repo.service';
 import {
   contrastOn,
+  faceLabel,
   firstHitEndComplete,
   getTarget,
   isFirstHitStyle,
@@ -145,6 +146,9 @@ interface Placed {
                 (click)="key(z.ring)"
               >
                 {{ z.label }}
+                @if (z.name) {
+                  <small>{{ z.name }}</small>
+                }
               </button>
             }
           </div>
@@ -279,6 +283,11 @@ interface Placed {
       grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
       gap: 8px;
     }
+    .key small {
+      display: block;
+      font: 600 10.5px/1.15 var(--font);
+      margin-top: 2px;
+    }
     .key {
       height: 64px;
       border-radius: 14px;
@@ -368,7 +377,7 @@ export class EndInputPage {
     return [
       `Round ${r.index + 1}`,
       formatDimension(r.distance),
-      `${this.model().name} ${formatDimension(r.targetDiameter)}`,
+      faceLabel(r.targetId, r.targetDiameter),
     ]
       .filter(Boolean)
       .join(' · ');

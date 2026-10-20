@@ -122,4 +122,22 @@ describe('targets', () => {
     // Second arrow in the body: 14 points.
     expect(scoreEnd(ifaa, 0, end([MISS, 1, NOT_ENTERED])).reached).toBe(14);
   });
+
+  it('names 3D scoring and keypad buttons after the zones', () => {
+    expect(getTarget(19).styles[0].name).toBe(
+      'Green 8 · Small yellow 12 · Yellow 11 · Red 12 · 10 ring 10 · Vital 8 · Body 0',
+    );
+    expect(getTarget(15).styles[0].name).toBe('Yellow 12 · 10 ring 10 · Vital 8 · Body 5');
+    expect(getTarget(20).styles[0].name).toBe('1st/2nd/3rd arrow: Vital 20/16/12 · Body 18/14/10');
+    // WA faces keep their own names.
+    expect(getTarget(0).styles[0].name).toBe('Recurve (X, 10–1)');
+    const keys = selectableZones(getTarget(19), 0).map((z) => `${z.label}:${z.name ?? ''}`);
+    expect(keys).toEqual([
+      '8:Green / Vital',
+      '12:Yellow / Red',
+      '11:Yellow',
+      '10:10 ring',
+      'M:Body',
+    ]);
+  });
 });
