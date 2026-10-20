@@ -6,7 +6,7 @@ import { from, switchMap } from 'rxjs';
 import { analyseBundle, isSighted, loadTraining, TrainingBundle } from '../core/bundle';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
-import { pct } from '../core/format';
+import { avg, pct } from '../core/format';
 import { End, NOT_ENTERED, Shot } from '../core/models';
 import { Repo } from '../core/repo.service';
 import { contrastOn, getTarget, scoreEnd, zoneLabel } from '../core/targets';
@@ -41,7 +41,8 @@ import { ImageThumb } from '../ui/image-thumb';
               }}<span class="muted" style="font-size:18px"> / {{ r.score.total }}</span>
             </div>
             <div class="muted small">
-              {{ pct(r.score.reached, r.score.total) }} · {{ r.score.shots }} arrows
+              {{ pct(r.score.reached, r.score.total) }} · {{ r.score.shots }} arrows · Ø
+              {{ avg(r.score) }}
             </div>
           </div>
           <div class="spacer"></div>
@@ -125,6 +126,7 @@ export class RoundDetailPage {
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
   protected readonly pct = pct;
+  protected readonly avg = avg;
   protected readonly fmtDim = formatDimension;
 
   private readonly b = toSignal(

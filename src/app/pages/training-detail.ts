@@ -92,7 +92,9 @@ const WEATHER: Record<string, string> = {
                   <div class="end num">
                     <b>{{ r.score.reached }}</b
                     ><span class="muted">/{{ r.score.total }}</span>
-                    <div class="sub">{{ pct(r.score.reached, r.score.total) }}</div>
+                    <div class="sub">
+                      {{ pct(r.score.reached, r.score.total) }} · Ø {{ avg(r.score) }}
+                    </div>
                   </div>
                 </a>
               </li>
