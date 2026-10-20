@@ -31,7 +31,7 @@ import { APP_VERSION } from '../version';
               ><app-icon name="upload" />
               <div class="main">
                 <div class="title">MyTargets backup</div>
-                <div class="sub">Trainings, bows, arrows and photos from a MyTargets .zip</div>
+                <div class="sub">Sessions, bows, arrows and photos from a MyTargets .zip</div>
               </div>
               <app-icon name="chevron" class="muted"
             /></a>
@@ -163,7 +163,7 @@ import { APP_VERSION } from '../version';
       @if (pending(); as p) {
         <h3>Restore this backup?</h3>
         <p class="small">
-          Made {{ when(p.createdAt) }} · {{ p.trainings }} trainings, {{ p.bows }} bows,
+          Made {{ when(p.createdAt) }} · {{ p.sessions }} sessions, {{ p.bows }} bows,
           {{ p.arrows }} arrows, {{ p.images }} photos.
         </p>
         <p class="notice warn small">
@@ -272,7 +272,7 @@ export class MorePage {
     this.busy.set(true);
     try {
       await restoreBackup(p.file);
-      this.msg.set({ text: `Restored ${p.trainings} trainings.` });
+      this.msg.set({ text: `Restored ${p.sessions} sessions.` });
     } catch (err) {
       this.msg.set({
         text: `Restore failed, nothing was changed: ${(err as Error).message}`,

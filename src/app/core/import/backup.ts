@@ -12,7 +12,7 @@ const VERSION = 1;
 const TABLES = [
   'bows',
   'arrows',
-  'trainings',
+  'sessions',
   'rounds',
   'ends',
   'standardRounds',
@@ -55,7 +55,7 @@ export async function createBackup(): Promise<Blob> {
 
 export interface BackupSummary {
   createdAt: string;
-  trainings: number;
+  sessions: number;
   bows: number;
   arrows: number;
   images: number;
@@ -109,7 +109,7 @@ export async function inspectBackup(file: File): Promise<BackupSummary & { file:
   return {
     file,
     createdAt: data.createdAt ?? '',
-    trainings: data['trainings'].length,
+    sessions: data['sessions'].length,
     bows: data['bows'].length,
     arrows: data['arrows'].length,
     images: images.length,

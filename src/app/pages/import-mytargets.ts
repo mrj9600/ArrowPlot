@@ -48,8 +48,8 @@ import { Icon } from '../ui/icon';
           <h3>{{ p.fileName }}</h3>
           <div class="stats-grid">
             <div class="stat">
-              <div class="k">Trainings</div>
-              <div class="v">{{ p.trainings.length }}</div>
+              <div class="k">Sessions</div>
+              <div class="v">{{ p.sessions.length }}</div>
               <div class="h">
                 {{ p.firstDate ? fmtDate(p.firstDate) + ' – ' + fmtDate(p.lastDate!) : '' }}
               </div>
@@ -69,7 +69,7 @@ import { Icon } from '../ui/icon';
           </div>
           @if (p.existingCount) {
             <div class="notice small">
-              {{ p.existingCount }} of these trainings were imported before.
+              {{ p.existingCount }} of these sessions were imported before.
               @if (p.newCount) {
                 Only the {{ p.newCount }} new ones are added.
               } @else {
@@ -91,19 +91,19 @@ import { Icon } from '../ui/icon';
             (click)="run()"
             [disabled]="!!busy() || (!p.newCount && !replace())"
           >
-            Import {{ replace() ? p.trainings.length : p.newCount }} trainings
+            Import {{ replace() ? p.sessions.length : p.newCount }} sessions
           </button>
         </div>
       }
 
       @if (result(); as r) {
         <div class="notice ok">
-          Imported {{ r.trainings }} trainings, {{ r.bows }} bows, {{ r.arrows }} arrow sets and
+          Imported {{ r.sessions }} sessions, {{ r.bows }} bows, {{ r.arrows }} arrow sets and
           {{ r.images }} photos.
           @if (r.skipped) {
-            {{ r.skipped }} already imported trainings were skipped.
+            {{ r.skipped }} already imported sessions were skipped.
           }
-          <a routerLink="/">Go to trainings</a>
+          <a routerLink="/">Go to sessions</a>
         </div>
       }
     </div>

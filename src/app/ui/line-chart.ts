@@ -29,7 +29,7 @@ const PAD = { l: 40, r: 12, t: 12, b: 26 };
   template: `
     @if (points().length < 2) {
       <p class="muted small" style="margin:0">
-        Not enough trainings in this period to draw a trend.
+        Not enough sessions in this period to draw a trend.
       </p>
     } @else {
       <svg

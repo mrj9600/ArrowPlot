@@ -318,7 +318,7 @@ export function planArchDps(
 }
 
 export async function existingArchRefs(): Promise<Set<string>> {
-  const l = await db.trainings.where('sourceRef').startsWith('archdps:').toArray();
+  const l = await db.sessions.where('sourceRef').startsWith('archdps:').toArray();
   return new Set(l.map((t) => t.sourceRef!));
 }
 
@@ -332,7 +332,7 @@ export async function importArchDps(
     if (p.exists) continue;
     const s = p.session;
     const disc = p.type.diameter === null;
-    const id = await repo.createTraining(
+    const id = await repo.createSession(
       {
         title: s.name || s.location || '3D SKill Board',
         date: s.date,

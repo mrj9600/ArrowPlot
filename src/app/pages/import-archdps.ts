@@ -172,7 +172,7 @@ import { Icon } from '../ui/icon';
       }
 
       @if (done()) {
-        <div class="notice ok">{{ done() }} <a routerLink="/">Go to trainings</a></div>
+        <div class="notice ok">{{ done() }} <a routerLink="/">Go to sessions</a></div>
       }
     </div>
   `,

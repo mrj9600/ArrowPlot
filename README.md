@@ -12,25 +12,25 @@ Live: **https://mrj9600.github.io/ArrowPlot/**
 
 - **Your own rounds**: define rounds (one or more distances, face, scoring, ends) under Equipment, with a
   starter set (WA 18 m, 70 m, 1440, field, Vegas, …) you can edit or delete.
-- **Trainings**: pick one of your rounds, bow and arrows; optional arrow numbering with the numbers you choose.
+- **Sessions**: pick one of your rounds, bow and arrows; optional arrow numbering with the numbers you choose.
 - **End input** by plotting arrows on the face (the point sits above your finger, with a live ring readout
   and zoom) or with ring buttons. Multi-spot faces follow the arrow order. Arrow numbering can be switched off mid-session.
 - **Target faces** for WA full / 6 / 5 / 3 ring, vertical and Vegas 3-spot, Danage, WA and NFAA field,
   NFAA indoor, Worcester, 3D and animal rounds, with their scoring styles. Ring sizes are worked out from the
   face specifications; an arrow touching a line scores the higher ring. 3D and animal faces are drawn as
   simple stylised shapes.
-- **Analysis** per round, training or any filtered set: group centre and offset with aim/sight advice,
+- **Analysis** per round, session or any filtered set: group centre and offset with aim/sight advice,
   ±1 SD spread ellipse, R50/R90, mean radius, widest pair, score if the group were centred, arrows per
   ring, best-arrows averages. Trend charts of average per arrow and group size.
 - **Equipment**: bows with type-specific tuning fields, sight marks and photo; arrow sets with diameter.
 - **Shooting timer** with walk-up, warning and beeps; keeps the screen awake.
-- **Import MyTargets backups** (`MyTargets_backup_*.zip` or a bare `data.db`): trainings, rounds, ends, shots,
-  bows, sight marks, arrows, standard rounds and photos. Re-importing a newer backup only adds new trainings.
+- **Import MyTargets backups** (`MyTargets_backup_*.zip` or a bare `data.db`): sessions, rounds, ends, shots,
+  bows, sight marks, arrows, standard rounds and photos. Re-importing a newer backup only adds new sessions.
 - **Import 3D SKill Board backups** (the 3DTurnier app, `archDPS_*.zip`): your 3D, field and 10-ring
   sessions with their scoring, plus arrow positions on the 10-ring face. Each session's total is checked
   against the app's own.
-- **Import MantisX** shot exports (CSV): each session becomes a training, or gives arrow positions to a
-  training entered as scores only on the same day with the same scores. Option to keep MantisX's score for
+- **Import MantisX** shot exports (CSV): each session becomes a session, or gives arrow positions to a
+  session entered as scores only on the same day with the same scores. Option to keep MantisX's score for
   arrows on a line.
 - **Own backup/restore** (zip with JSON + photos) through the system share sheet or a download.
   Your data is never locked in.

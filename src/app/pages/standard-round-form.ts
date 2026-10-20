@@ -126,7 +126,7 @@ export class StandardRoundFormPage {
   }
 
   protected async remove() {
-    if (!confirm(`Delete "${this.sr().name}"? Trainings already shot with it are kept.`)) return;
+    if (!confirm(`Delete "${this.sr().name}"? Sessions already shot with it are kept.`)) return;
     await this.repo.deleteStandardRound(+this.id());
     this.router.navigateByUrl('/equipment', { replaceUrl: true });
   }

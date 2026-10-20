@@ -11,7 +11,7 @@ import {
 import { Router } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
-import { Arrow, End, NOT_ENTERED, Round, Shot, Training } from '../core/models';
+import { Arrow, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
 import { nowTime, Repo } from '../core/repo.service';
 import {
   contrastOn,
@@ -60,7 +60,7 @@ interface Placed {
     <app-bar
       [title]="title()"
       [subtitle]="subtitle()"
-      [back]="round() ? '/training/' + round()!.trainingId : '/'"
+      [back]="round() ? '/session/' + round()!.sessionId : '/'"
     >
       <button
         class="icon-btn"
@@ -145,7 +145,7 @@ interface Placed {
           </div>
         }
 
-        @if (training()?.arrowNumbering && shots()[current()]?.ring !== -2) {
+        @if (session()?.arrowNumbering && shots()[current()]?.ring !== -2) {
           <div class="numbers">
             <div class="row">
               <span class="small muted" style="flex:1"
@@ -297,7 +297,7 @@ export class EndInputPage {
   private readonly face = viewChild<TargetFace>('face');
 
   protected readonly round = signal<Round | null>(null);
-  protected readonly training = signal<Training | null>(null);
+  protected readonly session = signal<Session | null>(null);
   private readonly arrow = signal<Arrow | null>(null);
   private readonly otherEnds = signal<End[]>([]);
   private existing: End | null = null;
@@ -380,10 +380,10 @@ export class EndInputPage {
     () => this.shots().length > 0 && this.shots().every((s) => s.ring !== NOT_ENTERED),
   );
   protected readonly anyEntered = computed(() => this.shots().some((s) => s.ring !== NOT_ENTERED));
-  /** The numbers chosen for this training, or 1 … N for the arrow set (at least 13). */
+  /** The numbers chosen for this session, or 1 … N for the arrow set (at least 13). */
   protected readonly arrowNumbers = computed(
     () =>
-      this.training()?.arrowNumbers ??
+      this.session()?.arrowNumbers ??
       Array.from({ length: Math.max(13, this.arrow()?.maxArrowNumber ?? 0) }, (_, i) =>
         String(i + 1),
       ),
@@ -426,8 +426,8 @@ export class EndInputPage {
   private async load(roundId: number, endIndex: number) {
     const round = await db.rounds.get(roundId);
     if (!round) return;
-    const training = (await db.trainings.get(round.trainingId)) ?? null;
-    const arrow = training?.arrowId ? ((await db.arrows.get(training.arrowId)) ?? null) : null;
+    const session = (await db.sessions.get(round.sessionId)) ?? null;
+    const arrow = session?.arrowId ? ((await db.arrows.get(session.arrowId)) ?? null) : null;
     const ends = await this.repo.endsOf(roundId);
     this.existing = ends.find((e) => e.index === endIndex) ?? null;
     const n = round.shotsPerEnd;
@@ -436,7 +436,7 @@ export class EndInputPage {
       (_, i) => this.existing?.shots[i] ?? { index: i, x: 0, y: 0, ring: NOT_ENTERED },
     );
     this.round.set(round);
-    this.training.set(training);
+    this.session.set(session);
     this.arrow.set(arrow);
     this.otherEnds.set(ends);
     this.shots.set(shots.map((s, i) => ({ ...s, index: i })));
@@ -648,7 +648,7 @@ export class EndInputPage {
     this.shots.update((l) => l.map((s, j) => (j === i ? { ...s, ...p } : s)));
     this.positioned.update((l) => l.map((v, j) => (j === i ? positioned : v)));
     if (navigator.vibrate) navigator.vibrate(8);
-    if (this.training()?.arrowNumbering) return; // stay so a number can be picked
+    if (this.session()?.arrowNumbering) return; // stay so a number can be picked
     this.advance();
   }
 
@@ -659,12 +659,12 @@ export class EndInputPage {
     else if (any >= 0) this.current.set(any);
   }
 
-  /** Turns arrow numbering off for the rest of this training. */
+  /** Turns arrow numbering off for the rest of this session. */
   protected async stopNumbering() {
-    const t = this.training();
+    const t = this.session();
     if (!t) return;
-    await db.trainings.update(t.id!, { arrowNumbering: false });
-    this.training.set({ ...t, arrowNumbering: false });
+    await db.sessions.update(t.id!, { arrowNumbering: false });
+    this.session.set({ ...t, arrowNumbering: false });
     if (this.shots()[this.current()].ring !== NOT_ENTERED) this.advance();
   }
 

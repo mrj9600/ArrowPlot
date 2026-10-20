@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { f1, fmtDate, pct } from '../core/format';
-import { Arrow, Bow, Dimension, End, Round, Training } from '../core/models';
+import { Arrow, Bow, Dimension, End, Round, Session } from '../core/models';
 import { live } from '../core/repo.service';
 import { analyse, plotShots, PlotShot } from '../core/stats';
 import { getTarget } from '../core/targets';
@@ -12,7 +12,7 @@ import { AppBar } from '../ui/app-bar';
 import { ChartPoint, LineChart } from '../ui/line-chart';
 
 interface Data {
-  trainings: Training[];
+  sessions: Session[];
   rounds: Round[];
   ends: End[];
   bows: Bow[];
@@ -71,11 +71,11 @@ const PERIODS = [
       </div>
 
       @if (!selected().length) {
-        <p class="empty">No trainings match these filters.</p>
+        <p class="empty">No sessions match these filters.</p>
       } @else {
         <div class="stats-grid">
           <div class="stat">
-            <div class="k">Trainings</div>
+            <div class="k">Sessions</div>
             <div class="v">{{ selected().length }}</div>
           </div>
           <div class="stat">
@@ -94,7 +94,7 @@ const PERIODS = [
 
         <div class="card">
           <h3>Average per arrow</h3>
-          <app-line-chart [points]="avgSeries()" label="Average score per arrow per training" />
+          <app-line-chart [points]="avgSeries()" label="Average score per arrow per session" />
         </div>
         @if (r50Series().length >= 2) {
           <div class="card">
@@ -103,7 +103,7 @@ const PERIODS = [
               [points]="r50Series()"
               unit=" cm"
               [format]="fmt1"
-              label="R50 group size per training"
+              label="R50 group size per session"
             />
           </div>
         }
@@ -119,13 +119,13 @@ const PERIODS = [
           <app-analysis [a]="analysis()" [sighted]="sighted()" />
         </div>
 
-        <div class="section-title">Trainings</div>
+        <div class="section-title">Sessions</div>
         <div class="card flush scroll-x">
           <table class="tbl">
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Training</th>
+                <th>Session</th>
                 <th>Arrows</th>
                 <th>Avg</th>
                 <th>%</th>
@@ -133,10 +133,10 @@ const PERIODS = [
               </tr>
             </thead>
             <tbody>
-              @for (r of perTraining(); track r.t.id) {
+              @for (r of perSession(); track r.t.id) {
                 <tr>
                   <td>
-                    <a [routerLink]="['/training', r.t.id]">{{ r.t.date }}</a>
+                    <a [routerLink]="['/session', r.t.id]">{{ r.t.date }}</a>
                   </td>
                   <td>{{ r.t.title }}</td>
                   <td>{{ r.a.n }}</td>
@@ -169,16 +169,16 @@ export class StatsPage {
 
   protected readonly data = live<Data>(
     async () => {
-      const [trainings, rounds, ends, bows, arrows] = await Promise.all([
-        db.trainings.orderBy('date').toArray(),
+      const [sessions, rounds, ends, bows, arrows] = await Promise.all([
+        db.sessions.orderBy('date').toArray(),
         db.rounds.toArray(),
         db.ends.toArray(),
         db.bows.toArray(),
         db.arrows.toArray(),
       ]);
-      return { trainings, rounds, ends, bows, arrows };
+      return { sessions, rounds, ends, bows, arrows };
     },
-    { trainings: [], rounds: [], ends: [], bows: [], arrows: [] },
+    { sessions: [], rounds: [], ends: [], bows: [], arrows: [] },
   );
 
   private readonly endsByRound = computed(() => {
@@ -196,7 +196,7 @@ export class StatsPage {
     const days = PERIODS.find((p) => p.key === this.period())!.days;
     const from = days ? new Date(Date.now() - days * 864e5).toISOString().slice(0, 10) : '';
     const bow = this.bowId();
-    return this.data().trainings.filter(
+    return this.data().sessions.filter(
       (t) => t.date >= from && (!bow || t.bowId === bow) && t.score.shots > 0,
     );
   });
@@ -209,7 +209,7 @@ export class StatsPage {
     const ids = new Set(this.inPeriod().map((t) => t.id));
     const seen = new Map<string, { key: string; label: string; n: number }>();
     for (const r of this.data().rounds) {
-      if (!ids.has(r.trainingId)) continue;
+      if (!ids.has(r.sessionId)) continue;
       const key = this.faceKeyOf(r);
       const e = seen.get(key) ?? {
         key,
@@ -235,41 +235,39 @@ export class StatsPage {
     const key = this.faceKey();
     const ids = new Set(this.inPeriod().map((t) => t.id));
     return this.data().rounds.filter(
-      (r) => ids.has(r.trainingId) && (!key || this.faceKeyOf(r) === key),
+      (r) => ids.has(r.sessionId) && (!key || this.faceKeyOf(r) === key),
     );
   });
 
   protected readonly selected = computed(() => {
-    const ids = new Set(this.roundsFor().map((r) => r.trainingId));
+    const ids = new Set(this.roundsFor().map((r) => r.sessionId));
     return this.inPeriod().filter((t) => ids.has(t.id!));
   });
 
-  private readonly shotsByTraining = computed(() => {
+  private readonly shotsBySession = computed(() => {
     const arrows = new Map(this.data().arrows.map((a) => [a.id, a.diameter as Dimension]));
-    const tById = new Map(this.data().trainings.map((t) => [t.id, t]));
+    const tById = new Map(this.data().sessions.map((t) => [t.id, t]));
     const m = new Map<number, PlotShot[]>();
     for (const r of this.roundsFor()) {
-      const t = tById.get(r.trainingId)!;
+      const t = tById.get(r.sessionId)!;
       const shots = plotShots(
         this.endsByRound().get(r.id!) ?? [],
         r,
         t.arrowId ? (arrows.get(t.arrowId) ?? null) : null,
       );
-      m.set(r.trainingId, [...(m.get(r.trainingId) ?? []), ...shots]);
+      m.set(r.sessionId, [...(m.get(r.sessionId) ?? []), ...shots]);
     }
     return m;
   });
 
-  protected readonly perTraining = computed(() =>
+  protected readonly perSession = computed(() =>
     this.selected()
-      .map((t) => ({ t, a: analyse(this.shotsByTraining().get(t.id!) ?? []) }))
+      .map((t) => ({ t, a: analyse(this.shotsBySession().get(t.id!) ?? []) }))
       .filter((r) => r.a.n > 0)
       .reverse(),
   );
 
-  protected readonly analysis = computed(() =>
-    analyse([...this.shotsByTraining().values()].flat()),
-  );
+  protected readonly analysis = computed(() => analyse([...this.shotsBySession().values()].flat()));
 
   protected readonly mixed = computed(
     () => new Set(this.roundsFor().map((r) => this.faceKeyOf(r))).size > 1,
@@ -281,7 +279,7 @@ export class StatsPage {
   });
 
   protected readonly avgSeries = computed<ChartPoint[]>(() =>
-    [...this.perTraining()].reverse().map((r) => ({
+    [...this.perSession()].reverse().map((r) => ({
       date: r.t.date,
       value: r.a.avg,
       title: `${fmtDate(r.t.date)} · ${r.t.title}`,
@@ -289,7 +287,7 @@ export class StatsPage {
     })),
   );
   protected readonly r50Series = computed<ChartPoint[]>(() =>
-    [...this.perTraining()]
+    [...this.perSession()]
       .reverse()
       .filter((r) => !r.a.noPos)
       .map((r) => ({

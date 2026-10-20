@@ -9,7 +9,8 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { db } from '../core/db';
-import { Arrow, Bow, StandardRound, Training } from '../core/models';
+import { dim } from '../core/dimension';
+import { Arrow, Bow, Dimension, LengthUnit, StandardRound, Session } from '../core/models';
 import { Repo, todayIso } from '../core/repo.service';
 import { describeRoundSetup } from '../core/standard-rounds';
 import { AppBar } from '../ui/app-bar';
@@ -17,7 +18,7 @@ import { AppBar } from '../ui/app-bar';
 /** Arrow numbers offered when no arrow set says otherwise. */
 const DEFAULT_ARROW_COUNT = 13;
 
-interface LastTraining {
+interface LastSession {
   bowId?: number;
   arrowId?: number;
   standardId?: number;
@@ -25,13 +26,13 @@ interface LastTraining {
 }
 
 @Component({
-  selector: 'app-training-form',
+  selector: 'app-session-form',
   imports: [AppBar, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar
-      [title]="id() ? 'Edit training' : 'New training'"
-      [back]="id() ? '/training/' + id() : '/'"
+      [title]="id() ? 'Edit session' : 'New session'"
+      [back]="id() ? '/session/' + id() : '/'"
     />
     <form class="page" (submit)="$event.preventDefault(); save()">
       <div class="card" style="display:grid;gap:12px">
@@ -42,7 +43,7 @@ interface LastTraining {
               class="input"
               [value]="title()"
               (input)="title.set($any($event.target).value)"
-              [placeholder]="selectedRound()?.name ?? 'Training'"
+              [placeholder]="selectedRound()?.name ?? 'Session'"
             />
           </label>
           <label class="field"
@@ -69,28 +70,55 @@ interface LastTraining {
             @for (r of s.rounds; track $index; let i = $index) {
               <div class="round-line">
                 <span class="small muted">
-                  {{ s.rounds.length > 1 ? i + 1 + '. ' : '' }}{{ describe(r) }}
+                  {{ s.rounds.length > 1 ? 'Round ' + (i + 1) + ': ' : '' }}{{ describe(r) }}
                 </span>
-                <label class="ends">
-                  <span class="small muted">Ends</span>
-                  <input
-                    class="input"
-                    type="number"
-                    inputmode="numeric"
-                    min="0"
-                    max="99"
-                    placeholder="No limit"
-                    [value]="ends()[i] || ''"
-                    (input)="setEnds(i, +$any($event.target).value)"
-                    [attr.aria-label]="
-                      'Number of ends' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
-                    "
-                  />
-                </label>
+                <div class="round-inputs">
+                  <label class="ends">
+                    <span class="small muted">Distance</span>
+                    <input
+                      class="input"
+                      type="number"
+                      inputmode="decimal"
+                      min="0"
+                      step="any"
+                      placeholder="None"
+                      [value]="distances()[i]?.value > 0 ? distances()[i].value : ''"
+                      (input)="setDistance(i, +$any($event.target).value)"
+                      [attr.aria-label]="
+                        'Distance' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
+                      "
+                    />
+                    <select
+                      class="input unit"
+                      (change)="setUnit(i, $any($event.target).value)"
+                      aria-label="Distance unit"
+                    >
+                      <option value="m" [selected]="distances()[i]?.unit !== 'yd'">m</option>
+                      <option value="yd" [selected]="distances()[i]?.unit === 'yd'">yd</option>
+                    </select>
+                  </label>
+                  <label class="ends">
+                    <span class="small muted">Ends</span>
+                    <input
+                      class="input"
+                      type="number"
+                      inputmode="numeric"
+                      min="0"
+                      max="99"
+                      placeholder="No limit"
+                      [value]="ends()[i] || ''"
+                      (input)="setEnds(i, +$any($event.target).value)"
+                      [attr.aria-label]="
+                        'Number of ends' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
+                      "
+                    />
+                  </label>
+                </div>
               </div>
             }
             <span class="small muted" style="margin-top:-6px">
-              Ends are optional: leave empty to shoot as many as you like.
+              Changes here apply to this session only. Leave Ends empty to shoot as many as you
+              like.
             </span>
           } @else if (loaded()) {
             <p class="notice small" style="margin:0">
@@ -124,7 +152,7 @@ interface LastTraining {
         @if (!bows().length || !arrows().length) {
           <p class="small muted" style="margin:0">
             Add your bows and arrows under <a routerLink="/equipment">Equipment</a> to track them
-            per training. The arrow diameter makes line-cutter scoring exact.
+            per session. The arrow diameter makes line-cutter scoring exact.
           </p>
         }
 
@@ -183,19 +211,20 @@ interface LastTraining {
         type="submit"
         [disabled]="busy() || (!id() && !selectedRound())"
       >
-        {{ id() ? 'Save' : 'Start training' }}
+        {{ id() ? 'Save' : 'Start session' }}
       </button>
     </form>
   `,
   styles: `
     .round-line {
-      display: flex;
-      gap: 10px;
-      align-items: center;
+      display: grid;
+      gap: 6px;
       margin-top: -4px;
     }
-    .round-line > span {
-      flex: 1;
+    .round-inputs {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .ends {
       display: flex;
@@ -203,8 +232,12 @@ interface LastTraining {
       align-items: center;
     }
     .ends .input {
-      width: 92px;
+      width: 84px;
       min-height: 38px;
+    }
+    .ends .input.unit {
+      width: 64px;
+      padding: 0 6px;
     }
     .numbers {
       display: grid;
@@ -218,7 +251,7 @@ interface LastTraining {
     }
   `,
 })
-export class TrainingFormPage {
+export class SessionFormPage {
   readonly id = input<string>();
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
@@ -235,13 +268,15 @@ export class TrainingFormPage {
   protected readonly roundId = signal<number | null>(null);
   /** Number of ends per round of the chosen definition; 0 = no limit. */
   protected readonly ends = signal<number[]>([]);
+  /** Distance per round of the chosen definition; value -1 = no distance. */
+  protected readonly distances = signal<Dimension[]>([]);
   protected readonly bowId = signal<number | null>(null);
   protected readonly arrowId = signal<number | null>(null);
   protected readonly location = signal('');
   protected readonly comment = signal('');
   protected readonly numbering = signal(false);
   protected readonly chosen = signal(new Set<string>());
-  private existing: Training | null = null;
+  private existing: Session | null = null;
 
   protected readonly selectedRound = computed(
     () => this.rounds().find((s) => s.id === this.roundId()) ?? null,
@@ -270,7 +305,7 @@ export class TrainingFormPage {
     this.arrows.set(arrows);
     this.rounds.set(rounds);
     if (id) {
-      const t = await db.trainings.get(id);
+      const t = await db.sessions.get(id);
       if (!t) return;
       this.existing = t;
       this.title.set(t.title);
@@ -282,7 +317,7 @@ export class TrainingFormPage {
       this.numbering.set(t.arrowNumbering);
       this.chosen.set(new Set(t.arrowNumbers ?? this.pool()));
     } else {
-      const last = await this.repo.getSetting<LastTraining>('lastTraining', {});
+      const last = await this.repo.getSetting<LastSession>('lastSession', {});
       const has = <T extends { id?: number }>(l: T[], id?: number) => l.some((x) => x.id === id);
       this.bowId.set(has(bows, last.bowId) ? last.bowId! : bows.length === 1 ? bows[0].id! : null);
       this.arrowId.set(
@@ -297,6 +332,15 @@ export class TrainingFormPage {
   protected pickRound(id: number | null) {
     this.roundId.set(id);
     this.ends.set(this.selectedRound()?.rounds.map((r) => r.endCount || 0) ?? []);
+    this.distances.set(this.selectedRound()?.rounds.map((r) => r.distance) ?? []);
+  }
+  protected setDistance(i: number, v: number) {
+    const unit = this.distances()[i]?.unit ?? 'm';
+    const d = isFinite(v) && v > 0 ? dim(v, unit) : dim(-1, null);
+    this.distances.update((l) => l.map((x, j) => (j === i ? d : x)));
+  }
+  protected setUnit(i: number, unit: LengthUnit) {
+    this.distances.update((l) => l.map((x, j) => (j === i ? { ...x, unit } : x)));
   }
   protected setEnds(i: number, v: number) {
     const n = isFinite(v) ? Math.min(99, Math.max(0, Math.round(v))) : 0;
@@ -339,17 +383,17 @@ export class TrainingFormPage {
         arrowNumbers: numbers,
       };
       if (this.existing) {
-        await this.repo.updateTraining({
+        await this.repo.updateSession({
           ...this.existing,
           ...base,
           title: base.title || this.existing.title,
         });
-        this.router.navigate(['/training', this.existing.id], { replaceUrl: true });
+        this.router.navigate(['/session', this.existing.id], { replaceUrl: true });
         return;
       }
       const sr = this.selectedRound();
       if (!sr?.rounds.length) return;
-      const id = await this.repo.createTraining(
+      const id = await this.repo.createSession(
         {
           ...base,
           title: base.title || sr.name,
@@ -358,16 +402,20 @@ export class TrainingFormPage {
           weather: null,
           source: 'manual',
         },
-        sr.rounds.map((r, i) => ({ ...r, endCount: this.ends()[i] ?? r.endCount })),
+        sr.rounds.map((r, i) => ({
+          ...r,
+          endCount: this.ends()[i] ?? r.endCount,
+          distance: this.distances()[i] ?? r.distance,
+        })),
       );
-      await this.repo.setSetting('lastTraining', {
+      await this.repo.setSetting('lastSession', {
         bowId: this.bowId() ?? undefined,
         arrowId: this.arrowId() ?? undefined,
         standardId: sr.id,
         arrowNumbers: numbers ?? undefined,
-      } satisfies LastTraining);
+      } satisfies LastSession);
       const [first] = await this.repo.roundsOf(id);
-      await this.router.navigate(['/training', id], { replaceUrl: true });
+      await this.router.navigate(['/session', id], { replaceUrl: true });
       this.router.navigate(['/round', first.id, 'end', 0]);
     } finally {
       this.busy.set(false);

@@ -1,10 +1,10 @@
 import Dexie, { Table } from 'dexie';
-import { Arrow, Bow, End, Round, Setting, StandardRound, StoredImage, Training } from './models';
+import { Arrow, Bow, End, Round, Setting, StandardRound, StoredImage, Session } from './models';
 
 export class ArrowPlotDb extends Dexie {
   bows!: Table<Bow, number>;
   arrows!: Table<Arrow, number>;
-  trainings!: Table<Training, number>;
+  sessions!: Table<Session, number>;
   rounds!: Table<Round, number>;
   ends!: Table<End, number>;
   images!: Table<StoredImage, number>;
@@ -13,11 +13,12 @@ export class ArrowPlotDb extends Dexie {
 
   constructor() {
     super('arrowplot');
-    this.version(1).stores({
+    // Version 2 renamed the session table and its round index; older data is not carried over.
+    this.version(2).stores({
       bows: '++id, name, sourceRef',
       arrows: '++id, name, sourceRef',
-      trainings: '++id, date, bowId, arrowId, sourceRef',
-      rounds: '++id, trainingId, [trainingId+index]',
+      sessions: '++id, date, bowId, arrowId, sourceRef',
+      rounds: '++id, sessionId, [sessionId+index]',
       ends: '++id, roundId, [roundId+index]',
       images: '++id',
       standardRounds: '++id, name, sourceRef',

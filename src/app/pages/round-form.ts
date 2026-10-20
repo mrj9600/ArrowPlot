@@ -7,7 +7,7 @@ import { Repo } from '../core/repo.service';
 import { AppBar } from '../ui/app-bar';
 import { RoundSettings } from '../ui/round-settings';
 
-/** Adds a round to a training (/training/:trainingId/round/new) or edits one (/round/:id/edit). */
+/** Adds a round to a session (/session/:sessionId/round/new) or edits one (/round/:id/edit). */
 @Component({
   selector: 'app-round-form',
   imports: [AppBar, RoundSettings],
@@ -38,7 +38,7 @@ import { RoundSettings } from '../ui/round-settings';
 })
 export class RoundFormPage {
   readonly id = input<string>();
-  readonly trainingId = input<string>();
+  readonly sessionId = input<string>();
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
 
@@ -56,11 +56,11 @@ export class RoundFormPage {
 
   constructor() {
     effect(() => {
-      this.load(this.id(), this.trainingId());
+      this.load(this.id(), this.sessionId());
     });
   }
 
-  private async load(id?: string, trainingId?: string) {
+  private async load(id?: string, sessionId?: string) {
     if (id) {
       const r = await db.rounds.get(+id);
       if (!r) return;
@@ -75,9 +75,9 @@ export class RoundFormPage {
         shotsPerEnd: r.shotsPerEnd,
         endCount: r.maxEndCount ?? 0,
       });
-    } else if (trainingId) {
-      this.backUrl.set(`/training/${trainingId}`);
-      const rounds = await this.repo.roundsOf(+trainingId);
+    } else if (sessionId) {
+      this.backUrl.set(`/session/${sessionId}`);
+      const rounds = await this.repo.roundsOf(+sessionId);
       const last = rounds.at(-1);
       if (last) {
         this.tpl.set({
@@ -106,8 +106,8 @@ export class RoundFormPage {
         comment: this.comment().trim(),
       });
       this.router.navigate(['/round', this.existing.id], { replaceUrl: true });
-    } else if (this.trainingId()) {
-      const rid = await this.repo.addRound(+this.trainingId()!, t);
+    } else if (this.sessionId()) {
+      const rid = await this.repo.addRound(+this.sessionId()!, t);
       await this.router.navigate(['/round', rid], { replaceUrl: true });
       this.router.navigate(['/round', rid, 'end', 0]);
     }

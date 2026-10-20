@@ -5,7 +5,7 @@
  */
 import { db } from '../db';
 import { dim } from '../dimension';
-import { Dimension, End, MISS, Shot, Training } from '../models';
+import { Dimension, End, MISS, Shot, Session } from '../models';
 import { Repo } from '../repo.service';
 import { getTarget, pointsFor, relativeArrowRadius, zoneAt } from '../targets';
 
@@ -25,10 +25,10 @@ export interface MantisSession {
   shots: MantisShot[];
   /** Rows in the file for this session, including shots without a plotted position. */
   totalRows: number;
-  /** Already imported as its own training. */
-  imported?: Training;
-  /** A score-only training on the same day with exactly the same scores. */
-  match?: Training;
+  /** Already imported as its own session. */
+  imported?: Session;
+  /** A score-only session on the same day with exactly the same scores. */
+  match?: Session;
   matchRoundIds?: number[];
 }
 
@@ -128,9 +128,9 @@ export function parseMantis(text: string): MantisSession[] {
 
 const ringKey = (rings: number[]) => [...rings].sort((a, b) => a - b).join(',');
 
-/** Marks sessions already imported, and finds score-only WA full-face trainings they belong to. */
+/** Marks MantisX sessions already imported, and finds score-only WA full-face ArrowPlot sessions they belong to. */
 export async function annotateSessions(sessions: MantisSession[]): Promise<void> {
-  const imported = await db.trainings.where('sourceRef').startsWith('mantis:').toArray();
+  const imported = await db.sessions.where('sourceRef').startsWith('mantis:').toArray();
   const byRef = new Map(imported.map((t) => [t.sourceRef, t]));
   const used = new Set<string>();
   for (const s of sessions) {
@@ -139,10 +139,10 @@ export async function annotateSessions(sessions: MantisSession[]): Promise<void>
     if (s.imported) used.add(s.sid);
   }
   const dates = [...new Set(sessions.map((s) => s.date))];
-  const candidates = await db.trainings.where('date').anyOf(dates).toArray();
+  const candidates = await db.sessions.where('date').anyOf(dates).toArray();
   for (const t of candidates) {
     if (t.source === 'mantisx') continue;
-    const rounds = (await db.rounds.where('trainingId').equals(t.id!).toArray()).filter(
+    const rounds = (await db.rounds.where('sessionId').equals(t.id!).toArray()).filter(
       (r) => r.targetId === 0,
     );
     if (!rounds.length) continue;
@@ -192,7 +192,7 @@ export interface MantisPlan {
   leftOut: number;
 }
 
-/** Works out scores/ends for a new training from a session, without writing anything. */
+/** Works out scores and ends for a new ArrowPlot session from a MantisX session, without writing anything. */
 export function planSession(s: MantisSession, o: MantisImportOptions): MantisPlan {
   const t = getTarget(0);
   const arrowR = relativeArrowRadius(t, dim(o.faceCm, 'cm'), o.arrowDiameter);
@@ -252,7 +252,7 @@ function timeOf(ts: string): string | null {
   return d ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}` : null;
 }
 
-export async function importSessionAsTraining(
+export async function createSessionFromMantis(
   s: MantisSession,
   o: MantisImportOptions,
   repo: Repo,
@@ -260,7 +260,7 @@ export async function importSessionAsTraining(
   const plan = planSession(s, o);
   if (!plan.ends.length)
     throw new Error('This session has fewer arrows with a position than one end.');
-  const trainingId = await repo.createTraining(
+  const sessionId = await repo.createSession(
     {
       title: o.title || 'MantisX',
       date: s.date,
@@ -286,7 +286,7 @@ export async function importSessionAsTraining(
       },
     ],
   );
-  const [round] = await repo.roundsOf(trainingId);
+  const [round] = await repo.roundsOf(sessionId);
   await db.ends.bulkAdd(
     plan.ends.map((es, i): End => ({
       roundId: round.id!,
@@ -298,15 +298,15 @@ export async function importSessionAsTraining(
     })),
   );
   await repo.recomputeRound(round.id!);
-  return trainingId;
+  return sessionId;
 }
 
 /**
- * Puts MantisX positions onto the arrows of a training entered as scores only. Each arrow gets the
+ * Puts MantisX positions onto the arrows of a session entered as scores only. Each arrow gets the
  * position of a MantisX shot with the same ring, so scores do not change.
  */
-export async function addPositionsToTraining(s: MantisSession, repo: Repo): Promise<number> {
-  if (!s.match || !s.matchRoundIds) throw new Error('No matching training.');
+export async function addPositionsToSession(s: MantisSession, repo: Repo): Promise<number> {
+  if (!s.match || !s.matchRoundIds) throw new Error('No matching session.');
   const pool = s.shots.map((m) => ({ ...m }));
   let n = 0;
   for (const roundId of s.matchRoundIds) {
@@ -323,6 +323,6 @@ export async function addPositionsToTraining(s: MantisSession, repo: Repo): Prom
   }
   const t = s.match;
   const note = `Arrow positions from MantisX session ${s.sid}.`;
-  await db.trainings.update(t.id!, { comment: t.comment ? `${t.comment}\n${note}` : note });
+  await db.sessions.update(t.id!, { comment: t.comment ? `${t.comment}\n${note}` : note });
   return n;
 }

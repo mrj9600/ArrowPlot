@@ -27,7 +27,7 @@ import { Icon } from './ui/icon';
     @if (showNav()) {
       <nav aria-label="Main">
         <a routerLink="/" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: true }"
-          ><app-icon name="list" /><span>Trainings</span></a
+          ><app-icon name="list" /><span>Sessions</span></a
         >
         <a routerLink="/stats" routerLinkActive="on"
           ><app-icon name="chart" /><span>Statistics</span></a

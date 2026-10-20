@@ -3,7 +3,7 @@ import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { liveQuery } from 'dexie';
 import { from, switchMap } from 'rxjs';
-import { analyseBundle, isSighted, loadTraining, TrainingBundle } from '../core/bundle';
+import { analyseBundle, isSighted, loadSession, SessionBundle } from '../core/bundle';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { avg, pct } from '../core/format';
@@ -24,7 +24,7 @@ import { ImageThumb } from '../ui/image-thumb';
       <app-bar
         [title]="'Round ' + (r.index + 1) + (fmtDim(r.distance) ? ' · ' + fmtDim(r.distance) : '')"
         [subtitle]="faceName()"
-        [back]="'/training/' + r.trainingId"
+        [back]="'/session/' + r.sessionId"
       >
         <a class="icon-btn" [routerLink]="['/round', r.id, 'edit']" aria-label="Edit round"
           ><app-icon name="edit"
@@ -135,12 +135,12 @@ export class RoundDetailPage {
         from(
           liveQuery(async () => {
             const r = await db.rounds.get(+id);
-            return r ? loadTraining(r.trainingId) : null;
+            return r ? loadSession(r.sessionId) : null;
           }),
         ),
       ),
     ),
-    { initialValue: null as TrainingBundle | null },
+    { initialValue: null as SessionBundle | null },
   );
   protected readonly round = computed(
     () => this.b()?.rounds.find((r) => r.id === +this.id()) ?? null,
@@ -196,6 +196,6 @@ export class RoundDetailPage {
     const r = this.round();
     if (!r || !confirm(`Delete round ${r.index + 1} and its ${this.ends().length} ends?`)) return;
     await this.repo.deleteRound(r.id!);
-    this.router.navigate(['/training', r.trainingId], { replaceUrl: true });
+    this.router.navigate(['/session', r.sessionId], { replaceUrl: true });
   }
 }

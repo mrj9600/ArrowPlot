@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { avg, fmtMonth, pct } from '../core/format';
-import { Bow, Round, Training } from '../core/models';
+import { Bow, Round, Session } from '../core/models';
 import { live, Repo, todayIso } from '../core/repo.service';
 import { getTarget, TargetKind } from '../core/targets';
 import { AppBar } from '../ui/app-bar';
@@ -11,7 +11,7 @@ import { Icon } from '../ui/icon';
 import { InstallCard } from '../ui/install-card';
 
 interface Row {
-  t: Training;
+  t: Session;
   sub: string;
   day: string;
   wd: string;
@@ -35,7 +35,7 @@ const KIND_LABEL: Record<TargetKind, string> = {
 };
 
 @Component({
-  selector: 'app-trainings',
+  selector: 'app-sessions',
   imports: [AppBar, RouterLink, Icon, InstallCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -45,7 +45,7 @@ const KIND_LABEL: Record<TargetKind, string> = {
         type="button"
         (click)="open.set(!open())"
         [attr.aria-expanded]="open()"
-        aria-label="Filter trainings"
+        aria-label="Filter sessions"
       >
         <app-icon name="filter" />
         @if (activeCount()) {
@@ -102,7 +102,7 @@ const KIND_LABEL: Record<TargetKind, string> = {
           }
           <div class="row">
             <span class="small muted" style="flex:1"
-              >Showing {{ shown() }} of {{ data().trainings.length }}</span
+              >Showing {{ shown() }} of {{ data().sessions.length }}</span
             >
             <button
               class="btn sm ghost"
@@ -117,17 +117,17 @@ const KIND_LABEL: Record<TargetKind, string> = {
       } @else if (activeCount()) {
         <button class="chip on summary" type="button" (click)="open.set(true)">
           <app-icon name="filter" /> {{ summary() }} · {{ shown() }} of
-          {{ data().trainings.length }}
+          {{ data().sessions.length }}
         </button>
       }
 
-      @if (loaded() && !data().trainings.length) {
+      @if (loaded() && !data().sessions.length) {
         <div class="empty">
           <img src="logo.svg" alt="" />
-          <h2>No trainings yet</h2>
+          <h2>No sessions yet</h2>
           <p>
-            Start a training with the + button, or bring your history over from MyTargets, MantisX
-            or 3D SKill Board (under More).
+            Start a session with the + button, or bring your history over from MyTargets, MantisX or
+            3D SKill Board (under More).
           </p>
           <div class="row wrap" style="justify-content:center">
             <a class="btn" routerLink="/import/mytargets">Import MyTargets backup</a>
@@ -136,7 +136,7 @@ const KIND_LABEL: Record<TargetKind, string> = {
         </div>
       } @else if (loaded() && !shown()) {
         <div class="empty">
-          <p>No trainings match the filter.</p>
+          <p>No sessions match the filter.</p>
           <button class="btn" type="button" (click)="clear()">Clear filter</button>
         </div>
       }
@@ -146,7 +146,7 @@ const KIND_LABEL: Record<TargetKind, string> = {
           <ul class="list">
             @for (r of g.rows; track r.t.id) {
               <li>
-                <a class="item" [routerLink]="['/training', r.t.id]">
+                <a class="item" [routerLink]="['/session', r.t.id]">
                   <div class="date">
                     <b>{{ r.day }}</b
                     ><span>{{ r.wd }}</span>
@@ -171,7 +171,7 @@ const KIND_LABEL: Record<TargetKind, string> = {
         </div>
       }
     </div>
-    <a class="fab" routerLink="/training/new" aria-label="New training"><app-icon name="add" /></a>
+    <a class="fab" routerLink="/session/new" aria-label="New session"><app-icon name="add" /></a>
   `,
   styles: `
     .date {
@@ -217,7 +217,7 @@ const KIND_LABEL: Record<TargetKind, string> = {
     }
   `,
 })
-export class TrainingsPage {
+export class SessionsPage {
   private readonly repo = inject(Repo);
   protected readonly pct = pct;
   protected readonly avg = avg;
@@ -229,15 +229,15 @@ export class TrainingsPage {
 
   protected readonly data = live(
     async () => {
-      const [trainings, bows, rounds] = await Promise.all([
-        this.repo.trainingsNewestFirst(),
+      const [sessions, bows, rounds] = await Promise.all([
+        this.repo.sessionsNewestFirst(),
         db.bows.toArray(),
         db.rounds.toArray(),
       ]);
-      return { trainings, bows, rounds, loaded: true };
+      return { sessions, bows, rounds, loaded: true };
     },
     {
-      trainings: [] as Training[],
+      sessions: [] as Session[],
       bows: [] as Bow[],
       rounds: [] as Round[],
       loaded: false,
@@ -247,23 +247,23 @@ export class TrainingsPage {
   protected readonly bows = computed(() => this.data().bows);
 
   constructor() {
-    this.repo.getSetting<Filter>('trainingFilter', NO_FILTER).then((f) => {
+    this.repo.getSetting<Filter>('sessionFilter', NO_FILTER).then((f) => {
       this.filter.set({ ...NO_FILTER, ...f });
     });
   }
 
   protected set(p: Partial<Filter>) {
     this.filter.update((f) => ({ ...f, ...p }));
-    this.repo.setSetting('trainingFilter', this.filter());
+    this.repo.setSetting('sessionFilter', this.filter());
   }
   protected clear() {
     this.filter.set(NO_FILTER);
-    this.repo.setSetting('trainingFilter', NO_FILTER);
+    this.repo.setSetting('sessionFilter', NO_FILTER);
   }
 
-  /** Fixed ranges plus every year that has trainings. */
+  /** Fixed ranges plus every year that has sessions. */
   protected readonly periods = computed(() => {
-    const years = [...new Set(this.data().trainings.map((t) => t.date.slice(0, 4)))]
+    const years = [...new Set(this.data().sessions.map((t) => t.date.slice(0, 4)))]
       .sort()
       .reverse();
     return [
@@ -292,12 +292,12 @@ export class TrainingsPage {
       .join(' · ');
   });
 
-  /** Kinds of face shot in each training. */
-  private readonly kindsByTraining = computed(() => {
+  /** Kinds of face shot in each session. */
+  private readonly kindsBySession = computed(() => {
     const m = new Map<number, Set<TargetKind>>();
     for (const r of this.data().rounds) {
-      let s = m.get(r.trainingId);
-      if (!s) m.set(r.trainingId, (s = new Set()));
+      let s = m.get(r.sessionId);
+      if (!s) m.set(r.sessionId, (s = new Set()));
       s.add(getTarget(r.targetId).kind);
     }
     return m;
@@ -317,12 +317,12 @@ export class TrainingsPage {
       from = d.toISOString().slice(0, 10);
       to = todayIso();
     }
-    return this.data().trainings.filter(
+    return this.data().sessions.filter(
       (t) =>
         t.date >= from &&
         t.date <= to &&
         (!q || t.title.toLowerCase().includes(q) || t.location.toLowerCase().includes(q)) &&
-        (f.kind === 'all' || !!this.kindsByTraining().get(t.id!)?.has(f.kind)) &&
+        (f.kind === 'all' || !!this.kindsBySession().get(t.id!)?.has(f.kind)) &&
         (!f.bowId || t.bowId === f.bowId),
     );
   });
@@ -333,10 +333,10 @@ export class TrainingsPage {
     const bowName = new Map(bows.map((b) => [b.id, b.name]));
     const dists = new Map<number, string[]>();
     for (const r of rounds) {
-      const l = dists.get(r.trainingId) ?? [];
+      const l = dists.get(r.sessionId) ?? [];
       const d = formatDimension(r.distance);
       if (d && !l.includes(d)) l.push(d);
-      dists.set(r.trainingId, l);
+      dists.set(r.sessionId, l);
     }
     const out: { month: string; rows: Row[] }[] = [];
     for (const t of this.visible()) {

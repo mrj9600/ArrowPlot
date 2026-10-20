@@ -189,7 +189,7 @@ export class BowFormPage {
   protected async remove() {
     if (
       !confirm(
-        `Delete ${this.bow().name}? Trainings keep their scores but lose the link to this bow.`,
+        `Delete ${this.bow().name}? Sessions keep their scores but lose the link to this bow.`,
       )
     )
       return;

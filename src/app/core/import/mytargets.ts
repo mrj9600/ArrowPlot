@@ -14,13 +14,20 @@ import {
   Round,
   Shot,
   StandardRound,
-  Training,
+  Session,
   WEATHER,
 } from '../models';
 import { EMPTY_SCORE, Repo } from '../repo.service';
 import { columns, getSql, query, Row, tables } from './sqlite';
 
-interface MtTraining {
+/**
+ * MyTargets' own names for a session table and the round column pointing to it. They are part of
+ * MyTargets' database schema, so they must be spelled exactly like this to read its backups.
+ */
+const MT_SESSION_TABLE = 'Training';
+const MT_SESSION_COLUMN = 'trainingId';
+
+interface MtSession {
   row: Row;
   rounds: { row: Row; ends: { row: Row; shots: Row[]; images: string[] }[] }[];
   ref: string;
@@ -29,7 +36,7 @@ interface MtTraining {
 
 export interface MyTargetsPreview {
   fileName: string;
-  trainings: MtTraining[];
+  sessions: MtSession[];
   bows: Row[];
   arrows: Row[];
   bowImages: Map<number, string>;
@@ -45,7 +52,7 @@ export interface MyTargetsPreview {
 }
 
 export interface MyTargetsResult {
-  trainings: number;
+  sessions: number;
   bows: number;
   arrows: number;
   images: number;
@@ -79,15 +86,15 @@ export async function readMyTargetsBackup(file: File): Promise<MyTargetsPreview>
   const sdb = new SQL.Database(dbBytes);
   try {
     const t = tables(sdb);
-    for (const need of ['Training', 'Round', 'End', 'Shot']) {
+    for (const need of [MT_SESSION_TABLE, 'Round', 'End', 'Shot']) {
       if (!t.has(need))
         throw new Error(`This database has no ${need} table. Is it a MyTargets backup?`);
     }
     const has = (table: string) => t.has(table);
-    const trainingCols = columns(sdb, 'Training');
+    const sessionCols = columns(sdb, MT_SESSION_TABLE);
 
-    const trainingsRows = query(sdb, `select * from Training order by date, id`);
-    const roundRows = query(sdb, `select * from Round order by trainingId, "index", id`);
+    const sessionsRows = query(sdb, `select * from ${MT_SESSION_TABLE} order by date, id`);
+    const roundRows = query(sdb, `select * from Round order by ${MT_SESSION_COLUMN}, "index", id`);
     const endRows = query(sdb, `select * from "End" order by roundId, "index", id`);
     const shotRows = query(sdb, `select * from Shot order by endId, "index", id`);
     const endImages = has('EndImage') ? query(sdb, `select fileName, endId from EndImage`) : [];
@@ -106,9 +113,9 @@ export async function readMyTargetsBackup(file: File): Promise<MyTargetsPreview>
           arrowImages.set(Number(r['arrowId']), str(r['fileName']));
 
     const standardRounds = new Map<number, { row: Row; templates: Row[] }>();
-    if (has('StandardRound') && trainingCols.has('standardRoundId')) {
+    if (has('StandardRound') && sessionCols.has('standardRoundId')) {
       const used = new Set(
-        trainingsRows
+        sessionsRows
           .filter((r) => r['standardRoundId'] != null)
           .map((r) => Number(r['standardRoundId'])),
       );
@@ -129,15 +136,15 @@ export async function readMyTargetsBackup(file: File): Promise<MyTargetsPreview>
     const shotsByEnd = group(shotRows, 'endId');
     const imagesByEnd = group(endImages, 'endId');
     const endsByRound = group(endRows, 'roundId');
-    const roundsByTraining = group(roundRows, 'trainingId');
+    const roundsBySession = group(roundRows, MT_SESSION_COLUMN);
 
     const existingRefs = new Set(
-      (await db.trainings.where('sourceRef').startsWith('mt:').toArray()).map((x) => x.sourceRef),
+      (await db.sessions.where('sourceRef').startsWith('mt:').toArray()).map((x) => x.sourceRef),
     );
     let shotCount = 0;
-    const trainings: MtTraining[] = trainingsRows.map((row) => {
+    const sessions: MtSession[] = sessionsRows.map((row) => {
       const ref = `mt:${row['id']}|${row['date']}|${row['title']}`;
-      const rounds = (roundsByTraining.get(Number(row['id'])) ?? []).map((rr) => ({
+      const rounds = (roundsBySession.get(Number(row['id'])) ?? []).map((rr) => ({
         row: rr,
         ends: (endsByRound.get(Number(rr['id'])) ?? []).map((er) => {
           const shots = shotsByEnd.get(Number(er['id'])) ?? [];
@@ -151,10 +158,10 @@ export async function readMyTargetsBackup(file: File): Promise<MyTargetsPreview>
       }));
       return { row, rounds, ref, exists: existingRefs.has(ref) };
     });
-    const existingCount = trainings.filter((x) => x.exists).length;
+    const existingCount = sessions.filter((x) => x.exists).length;
     return {
       fileName: file.name,
-      trainings,
+      sessions,
       bows,
       arrows,
       bowImages,
@@ -162,10 +169,10 @@ export async function readMyTargetsBackup(file: File): Promise<MyTargetsPreview>
       standardRounds,
       sightMarks,
       files,
-      newCount: trainings.length - existingCount,
+      newCount: sessions.length - existingCount,
       existingCount,
-      firstDate: trainings[0] ? str(trainings[0].row['date']) : undefined,
-      lastDate: trainings.length ? str(trainings[trainings.length - 1].row['date']) : undefined,
+      firstDate: sessions[0] ? str(sessions[0].row['date']) : undefined,
+      lastDate: sessions.length ? str(sessions[sessions.length - 1].row['date']) : undefined,
       shotCount,
     };
   } finally {
@@ -190,7 +197,7 @@ function mime(name: string): string {
 }
 
 /**
- * Writes the backup into ArrowPlot. Trainings already imported from an earlier backup
+ * Writes the backup into ArrowPlot. Sessions already imported from an earlier backup
  * (same MyTargets id, date and title) are skipped unless `replaceExisting` is set.
  */
 export async function importMyTargets(
@@ -198,7 +205,7 @@ export async function importMyTargets(
   repo: Repo,
   replaceExisting: boolean,
 ): Promise<MyTargetsResult> {
-  const res: MyTargetsResult = { trainings: 0, bows: 0, arrows: 0, images: 0, skipped: 0 };
+  const res: MyTargetsResult = { sessions: 0, bows: 0, arrows: 0, images: 0, skipped: 0 };
   const newIds: number[] = [];
   const addImage = async (fileName: string): Promise<number | undefined> => {
     const bytes = p.files.get(baseName(fileName));
@@ -211,16 +218,16 @@ export async function importMyTargets(
   };
 
   if (replaceExisting) {
-    for (const t of p.trainings.filter((x) => x.exists)) {
-      const old = await db.trainings.where('sourceRef').equals(t.ref).toArray();
-      for (const o of old) await repo.deleteTraining(o.id!);
+    for (const t of p.sessions.filter((x) => x.exists)) {
+      const old = await db.sessions.where('sourceRef').equals(t.ref).toArray();
+      for (const o of old) await repo.deleteSession(o.id!);
       t.exists = false;
     }
   }
 
   await db.transaction(
     'rw',
-    [db.bows, db.arrows, db.trainings, db.rounds, db.ends, db.images, db.standardRounds],
+    [db.bows, db.arrows, db.sessions, db.rounds, db.ends, db.images, db.standardRounds],
     async () => {
       // Equipment: reuse what an earlier import created, matched by MyTargets id + name.
       const bowMap = new Map<number, number>();
@@ -327,14 +334,14 @@ export async function importMyTargets(
         srMap.set(id, await db.standardRounds.add(s));
       }
 
-      for (const t of p.trainings) {
+      for (const t of p.sessions) {
         if (t.exists) {
           res.skipped++;
           continue;
         }
         const r = t.row;
-        const training: Training = {
-          title: str(r['title']) || 'Training',
+        const session: Session = {
+          title: str(r['title']) || 'Session',
           date: str(r['date']),
           bowId: r['bowId'] != null ? (bowMap.get(Number(r['bowId'])) ?? null) : null,
           arrowId: r['arrowId'] != null ? (arrowMap.get(Number(r['arrowId'])) ?? null) : null,
@@ -355,11 +362,11 @@ export async function importMyTargets(
           score: { ...EMPTY_SCORE },
           createdAt: Date.now(),
         };
-        const trainingId = await db.trainings.add(training);
-        newIds.push(trainingId);
+        const sessionId = await db.sessions.add(session);
+        newIds.push(sessionId);
         for (const rr of t.rounds) {
           const round: Round = {
-            trainingId,
+            sessionId,
             index: Number(rr.row['index']),
             shotsPerEnd: Number(rr.row['shotsPerEnd']),
             maxEndCount: num(rr.row['maxEndCount']),
@@ -395,7 +402,7 @@ export async function importMyTargets(
             await db.ends.add(end);
           }
         }
-        res.trainings++;
+        res.sessions++;
       }
     },
   );

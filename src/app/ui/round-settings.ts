@@ -59,7 +59,8 @@ import { TargetFace } from './target-face';
             inputmode="decimal"
             min="1"
             step="any"
-            [value]="value().distance.value"
+            [value]="value().distance.value > 0 ? value().distance.value : ''"
+            placeholder="None"
             (input)="setDistance(+$any($event.target).value)"
           />
           <select class="input unit" (change)="setUnit($any($event.target).value)">
@@ -157,7 +158,9 @@ export class RoundSettings {
     this.patch({ targetDiameter: this.model().diameters[i] });
   }
   protected setDistance(v: number) {
-    if (isFinite(v) && v > 0) this.patch({ distance: dim(v, this.value().distance.unit ?? 'm') });
+    // An empty field means no fixed distance (e.g. field and 3D rounds).
+    if (!isFinite(v) || v <= 0) this.patch({ distance: dim(-1, null) });
+    else this.patch({ distance: dim(v, this.value().distance.unit ?? 'm') });
   }
   protected setUnit(u: LengthUnit) {
     this.patch({ distance: dim(this.value().distance.value, u) });

@@ -30,7 +30,7 @@ export interface PlotShot {
   index: number;
   arrowNumber?: string | null;
   distanceM: number | null;
-  trainingId: number;
+  sessionId: number;
   roundId: number;
 }
 
@@ -70,11 +70,11 @@ export interface Analysis {
 export function plotShots(
   ends: End[],
   round: Round,
-  trainingArrowDiameter: Parameters<typeof relativeArrowRadius>[2],
+  sessionArrowDiameter: Parameters<typeof relativeArrowRadius>[2],
 ): PlotShot[] {
   const t = getTarget(round.targetId);
   const rcm = faceRadiusCm(t, round.targetDiameter);
-  const arrowR = relativeArrowRadius(t, round.targetDiameter, trainingArrowDiameter);
+  const arrowR = relativeArrowRadius(t, round.targetDiameter, sessionArrowDiameter);
   const distanceM = round.distance.unit ? convert(round.distance, 'm') : null;
   const out: PlotShot[] = [];
   for (const e of ends) {
@@ -95,7 +95,7 @@ export function plotShots(
         index: s.index,
         arrowNumber: s.arrowNumber,
         distanceM,
-        trainingId: round.trainingId,
+        sessionId: round.sessionId,
         roundId: round.id!,
       });
     }

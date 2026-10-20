@@ -3,9 +3,9 @@ import { RouterLink } from '@angular/router';
 import { dim } from '../core/dimension';
 import { fmtDate } from '../core/format';
 import {
-  addPositionsToTraining,
+  addPositionsToSession,
   annotateSessions,
-  importSessionAsTraining,
+  createSessionFromMantis,
   MantisImportOptions,
   MantisSession,
   parseMantis,
@@ -29,7 +29,7 @@ type Action = 'new' | 'positions' | 'skip';
       <div class="card" style="display:grid;gap:10px">
         <p style="margin:0">
           Export your shots from the MantisX app as CSV and pick the file here. Each session can
-          become a new training, or give arrow positions to a training you entered as scores only
+          become a new session, or give arrow positions to a session you entered as scores only
           (same day, same scores).
         </p>
         <label class="btn primary" style="justify-self:start"
@@ -43,7 +43,7 @@ type Action = 'new' | 'positions' | 'skip';
 
       @if (sessions().length) {
         <div class="card" style="display:grid;gap:12px">
-          <h3>Settings for new trainings</h3>
+          <h3>Settings for new sessions</h3>
           <div class="grid2 stack">
             <label class="field"
               ><span>Title</span
@@ -170,7 +170,7 @@ type Action = 'new' | 'positions' | 'skip';
                   }
                 </div>
                 <select class="input act" (change)="setAction(s.s.sid, $any($event.target).value)">
-                  <option value="new" [selected]="s.action === 'new'">New training</option>
+                  <option value="new" [selected]="s.action === 'new'">New session</option>
                   @if (s.s.match) {
                     <option value="positions" [selected]="s.action === 'positions'">
                       Add positions
@@ -192,7 +192,7 @@ type Action = 'new' | 'positions' | 'skip';
         </button>
       }
       @if (done()) {
-        <div class="notice ok">{{ done() }} <a routerLink="/">Go to trainings</a></div>
+        <div class="notice ok">{{ done() }} <a routerLink="/">Go to sessions</a></div>
       }
     </div>
   `,
@@ -262,7 +262,7 @@ export class ImportMantisPage {
     this.arrows.set(arrows);
     const saved = await this.repo.getSetting<Partial<MantisImportOptions>>('mantisOptions', {});
     const last = await this.repo.getSetting<{ bowId?: number; arrowId?: number }>(
-      'lastTraining',
+      'lastSession',
       {},
     );
     const o = { ...this.opt(), bowId: last.bowId ?? null, arrowId: last.arrowId ?? null, ...saved };
@@ -334,10 +334,10 @@ export class ImportMantisPage {
     try {
       for (const r of this.rows()) {
         if (r.action === 'new' && r.plan.ends.length) {
-          await importSessionAsTraining(r.s, o, this.repo);
+          await createSessionFromMantis(r.s, o, this.repo);
           created++;
         } else if (r.action === 'positions') {
-          await addPositionsToTraining(r.s, this.repo);
+          await addPositionsToSession(r.s, this.repo);
           updated++;
         }
       }
@@ -351,7 +351,7 @@ export class ImportMantisPage {
         keepMantisScore,
       });
       this.done.set(
-        `Created ${created} training${created === 1 ? '' : 's'}${updated ? ` and added positions to ${updated}` : ''}.`,
+        `Created ${created} session${created === 1 ? '' : 's'}${updated ? ` and added positions to ${updated}` : ''}.`,
       );
       this.sessions.set([]);
     } catch (err) {

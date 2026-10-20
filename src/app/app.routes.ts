@@ -1,21 +1,21 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', loadComponent: () => import('./pages/trainings').then((m) => m.TrainingsPage) },
+  { path: '', loadComponent: () => import('./pages/sessions').then((m) => m.SessionsPage) },
   {
-    path: 'training/new',
-    loadComponent: () => import('./pages/training-form').then((m) => m.TrainingFormPage),
+    path: 'session/new',
+    loadComponent: () => import('./pages/session-form').then((m) => m.SessionFormPage),
   },
   {
-    path: 'training/:id',
-    loadComponent: () => import('./pages/training-detail').then((m) => m.TrainingDetailPage),
+    path: 'session/:id',
+    loadComponent: () => import('./pages/session-detail').then((m) => m.SessionDetailPage),
   },
   {
-    path: 'training/:id/edit',
-    loadComponent: () => import('./pages/training-form').then((m) => m.TrainingFormPage),
+    path: 'session/:id/edit',
+    loadComponent: () => import('./pages/session-form').then((m) => m.SessionFormPage),
   },
   {
-    path: 'training/:trainingId/round/new',
+    path: 'session/:sessionId/round/new',
     loadComponent: () => import('./pages/round-form').then((m) => m.RoundFormPage),
   },
   {

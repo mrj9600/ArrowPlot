@@ -56,7 +56,7 @@ export interface Score {
   shots: number;
 }
 
-export interface Training {
+export interface Session {
   id?: number;
   title: string;
   /** ISO date, YYYY-MM-DD. */
@@ -75,7 +75,7 @@ export interface Training {
   windDirection?: number;
   location: string;
   comment: string;
-  /** Where the training came from: entered here, a MyTargets backup or a MantisX export. */
+  /** Where the session came from: entered here, a MyTargets backup or a MantisX export. */
   source: 'manual' | 'mytargets' | 'mantisx' | 'archdps';
   /** Stable reference into the source ("mt:<file>:<id>", "mantis:<session id>") to detect re-imports. */
   sourceRef?: string;
@@ -86,7 +86,7 @@ export interface Training {
 
 export interface Round {
   id?: number;
-  trainingId: number;
+  sessionId: number;
   index: number;
   shotsPerEnd: number;
   maxEndCount?: number | null;

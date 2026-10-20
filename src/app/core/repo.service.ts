@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { liveQuery } from 'dexie';
 import { from } from 'rxjs';
 import { db } from './db';
-import { Arrow, Bow, End, Round, RoundTemplate, Score, StandardRound, Training } from './models';
+import { Arrow, Bow, End, Round, RoundTemplate, Score, StandardRound, Session } from './models';
 import { BUILT_IN_ROUNDS } from './standard-rounds';
 import { getTarget, scoreEnd } from './targets';
 
@@ -39,10 +39,10 @@ export class Repo {
     }
   }
 
-  // ---------- trainings ----------
+  // ---------- sessions ----------
 
-  trainingsNewestFirst(): Promise<Training[]> {
-    return db.trainings
+  sessionsNewestFirst(): Promise<Session[]> {
+    return db.sessions
       .orderBy('date')
       .reverse()
       .toArray()
@@ -53,19 +53,19 @@ export class Repo {
       );
   }
 
-  async createTraining(
-    t: Omit<Training, 'id' | 'score' | 'createdAt'>,
+  async createSession(
+    t: Omit<Session, 'id' | 'score' | 'createdAt'>,
     rounds: RoundTemplate[],
   ): Promise<number> {
-    return db.transaction('rw', db.trainings, db.rounds, async () => {
-      const id = await db.trainings.add({
+    return db.transaction('rw', db.sessions, db.rounds, async () => {
+      const id = await db.sessions.add({
         ...t,
         score: { ...EMPTY_SCORE },
         createdAt: Date.now(),
-      } as Training);
+      } as Session);
       await db.rounds.bulkAdd(
         rounds.map((r, i): Round => ({
-          trainingId: id,
+          sessionId: id,
           index: i,
           shotsPerEnd: r.shotsPerEnd,
           maxEndCount: r.endCount || null,
@@ -81,29 +81,29 @@ export class Repo {
     });
   }
 
-  async updateTraining(t: Training): Promise<void> {
-    await db.trainings.put(t);
+  async updateSession(t: Session): Promise<void> {
+    await db.sessions.put(t);
   }
 
-  async deleteTraining(id: number): Promise<void> {
-    await db.transaction('rw', [db.trainings, db.rounds, db.ends, db.images], async () => {
-      const rounds = await db.rounds.where('trainingId').equals(id).toArray();
+  async deleteSession(id: number): Promise<void> {
+    await db.transaction('rw', [db.sessions, db.rounds, db.ends, db.images], async () => {
+      const rounds = await db.rounds.where('sessionId').equals(id).toArray();
       for (const r of rounds) await this.deleteEnds(r.id!);
-      await db.rounds.where('trainingId').equals(id).delete();
-      await db.trainings.delete(id);
+      await db.rounds.where('sessionId').equals(id).delete();
+      await db.sessions.delete(id);
     });
   }
 
   // ---------- rounds ----------
 
-  roundsOf(trainingId: number): Promise<Round[]> {
-    return db.rounds.where('trainingId').equals(trainingId).sortBy('index');
+  roundsOf(sessionId: number): Promise<Round[]> {
+    return db.rounds.where('sessionId').equals(sessionId).sortBy('index');
   }
 
-  async addRound(trainingId: number, tpl: RoundTemplate): Promise<number> {
-    const existing = await this.roundsOf(trainingId);
+  async addRound(sessionId: number, tpl: RoundTemplate): Promise<number> {
+    const existing = await this.roundsOf(sessionId);
     return db.rounds.add({
-      trainingId,
+      sessionId,
       index: existing.length,
       shotsPerEnd: tpl.shotsPerEnd,
       maxEndCount: tpl.endCount || null,
@@ -124,12 +124,12 @@ export class Repo {
   async deleteRound(id: number): Promise<void> {
     const r = await db.rounds.get(id);
     if (!r) return;
-    await db.transaction('rw', [db.trainings, db.rounds, db.ends, db.images], async () => {
+    await db.transaction('rw', [db.sessions, db.rounds, db.ends, db.images], async () => {
       await this.deleteEnds(id);
       await db.rounds.delete(id);
-      const rest = await this.roundsOf(r.trainingId);
+      const rest = await this.roundsOf(r.sessionId);
       await Promise.all(rest.map((x, i) => db.rounds.update(x.id!, { index: i })));
-      await this.recomputeTraining(r.trainingId);
+      await this.recomputeSession(r.sessionId);
     });
   }
 
@@ -177,11 +177,11 @@ export class Repo {
       score.shots += e.shots.filter((x) => x.ring !== -2).length;
     }
     await db.rounds.update(roundId, { score });
-    await this.recomputeTraining(r.trainingId);
+    await this.recomputeSession(r.sessionId);
   }
 
-  async recomputeTraining(trainingId: number): Promise<void> {
-    const rounds = await this.roundsOf(trainingId);
+  async recomputeSession(sessionId: number): Promise<void> {
+    const rounds = await this.roundsOf(sessionId);
     const score = rounds.reduce(
       (a, r) => ({
         reached: a.reached + r.score.reached,
@@ -190,7 +190,7 @@ export class Repo {
       }),
       { ...EMPTY_SCORE },
     );
-    await db.trainings.update(trainingId, { score });
+    await db.sessions.update(sessionId, { score });
   }
 
   // ---------- equipment ----------
@@ -209,16 +209,16 @@ export class Repo {
   }
   async deleteBow(id: number): Promise<void> {
     const b = await db.bows.get(id);
-    await db.transaction('rw', db.bows, db.trainings, db.images, async () => {
-      await db.trainings.where('bowId').equals(id).modify({ bowId: null });
+    await db.transaction('rw', db.bows, db.sessions, db.images, async () => {
+      await db.sessions.where('bowId').equals(id).modify({ bowId: null });
       if (b?.imageId) await db.images.delete(b.imageId);
       await db.bows.delete(id);
     });
   }
   async deleteArrow(id: number): Promise<void> {
     const a = await db.arrows.get(id);
-    await db.transaction('rw', db.arrows, db.trainings, db.images, async () => {
-      await db.trainings.where('arrowId').equals(id).modify({ arrowId: null });
+    await db.transaction('rw', db.arrows, db.sessions, db.images, async () => {
+      await db.sessions.where('arrowId').equals(id).modify({ arrowId: null });
       if (a?.imageId) await db.images.delete(a.imageId);
       await db.arrows.delete(id);
     });
@@ -234,10 +234,10 @@ export class Repo {
     return db.standardRounds.put(s);
   }
 
-  /** Deletes a round definition; trainings shot with it keep their rounds. */
+  /** Deletes a round definition; sessions shot with it keep their rounds. */
   async deleteStandardRound(id: number): Promise<void> {
-    await db.transaction('rw', db.standardRounds, db.trainings, async () => {
-      await db.trainings.filter((t) => t.standardRoundId === id).modify({ standardRoundId: null });
+    await db.transaction('rw', db.standardRounds, db.sessions, async () => {
+      await db.sessions.filter((t) => t.standardRoundId === id).modify({ standardRoundId: null });
       await db.standardRounds.delete(id);
     });
   }

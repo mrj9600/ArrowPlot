@@ -3,7 +3,7 @@ import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { liveQuery } from 'dexie';
 import { from, switchMap } from 'rxjs';
-import { analyseBundle, isSighted, loadTraining, TrainingBundle } from '../core/bundle';
+import { analyseBundle, isSighted, loadSession, SessionBundle } from '../core/bundle';
 import { formatDimension } from '../core/dimension';
 import { avg, fmtDate, pct } from '../core/format';
 import { Round } from '../core/models';
@@ -23,13 +23,13 @@ const WEATHER: Record<string, string> = {
 };
 
 @Component({
-  selector: 'app-training-detail',
+  selector: 'app-session-detail',
   imports: [AppBar, RouterLink, Icon, TargetFace, AnalysisView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (b(); as b) {
-      <app-bar [title]="b.training.title" [subtitle]="fmtDate(b.training.date, true)" back="/">
-        <a class="icon-btn" [routerLink]="['/training', b.training.id, 'edit']" aria-label="Edit"
+      <app-bar [title]="b.session.title" [subtitle]="fmtDate(b.session.date, true)" back="/">
+        <a class="icon-btn" [routerLink]="['/session', b.session.id, 'edit']" aria-label="Edit"
           ><app-icon name="edit"
         /></a>
         <button class="icon-btn" type="button" (click)="remove()" aria-label="Delete">
@@ -40,12 +40,12 @@ const WEATHER: Record<string, string> = {
         <div class="card score">
           <div>
             <div class="big-num">
-              {{ b.training.score.reached
-              }}<span class="muted" style="font-size:18px"> / {{ b.training.score.total }}</span>
+              {{ b.session.score.reached
+              }}<span class="muted" style="font-size:18px"> / {{ b.session.score.total }}</span>
             </div>
             <div class="muted small">
-              {{ pct(b.training.score.reached, b.training.score.total) }} ·
-              {{ b.training.score.shots }} arrows · Ø {{ avg(b.training.score) }}
+              {{ pct(b.session.score.reached, b.session.score.total) }} ·
+              {{ b.session.score.shots }} arrows · Ø {{ avg(b.session.score) }}
             </div>
           </div>
           <dl>
@@ -61,14 +61,14 @@ const WEATHER: Record<string, string> = {
               <dt>Where</dt>
               <dd>{{ conditions() }}</dd>
             }
-            @if (b.training.source !== 'manual') {
+            @if (b.session.source !== 'manual') {
               <dt>Source</dt>
-              <dd>{{ sourceName[b.training.source] }}</dd>
+              <dd>{{ sourceName[b.session.source] }}</dd>
             }
           </dl>
         </div>
-        @if (b.training.comment) {
-          <div class="card small" style="white-space:pre-wrap">{{ b.training.comment }}</div>
+        @if (b.session.comment) {
+          <div class="card small" style="white-space:pre-wrap">{{ b.session.comment }}</div>
         }
 
         <div class="section-title">Rounds</div>
@@ -107,7 +107,7 @@ const WEATHER: Record<string, string> = {
               ><app-icon name="target" /> Continue shooting</a
             >
           }
-          <a class="btn" [routerLink]="['/training', b.training.id, 'round', 'new']"
+          <a class="btn" [routerLink]="['/session', b.session.id, 'round', 'new']"
             ><app-icon name="add" /> Add round</a
           >
         </div>
@@ -148,7 +148,7 @@ const WEATHER: Record<string, string> = {
     }
   `,
 })
-export class TrainingDetailPage {
+export class SessionDetailPage {
   readonly id = input.required<string>();
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
@@ -163,16 +163,16 @@ export class TrainingDetailPage {
   protected readonly fmtDim = formatDimension;
 
   protected readonly b = toSignal(
-    toObservable(this.id).pipe(switchMap((id) => from(liveQuery(() => loadTraining(+id))))),
-    { initialValue: null as TrainingBundle | null },
+    toObservable(this.id).pipe(switchMap((id) => from(liveQuery(() => loadSession(+id))))),
+    { initialValue: null as SessionBundle | null },
   );
   protected readonly analysis = computed(() => (this.b() ? analyseBundle(this.b()!) : null));
   protected readonly sighted = computed(() => isSighted(this.b()?.bow ?? null));
 
   protected readonly conditions = computed(() => {
-    const t = this.b()?.training;
+    const t = this.b()?.session;
     if (!t) return '';
-    // Weather and wind only exist on trainings imported from MyTargets.
+    // Weather and wind only exist on sessions imported from MyTargets.
     const parts = [
       t.location,
       !t.indoor && t.weather ? WEATHER[t.weather] : '',
@@ -203,10 +203,10 @@ export class TrainingDetailPage {
   }
 
   protected async remove() {
-    const t = this.b()?.training;
+    const t = this.b()?.session;
     if (!t || !confirm(`Delete "${t.title}" (${fmtDate(t.date)}) with all its rounds and arrows?`))
       return;
-    await this.repo.deleteTraining(t.id!);
+    await this.repo.deleteSession(t.id!);
     this.router.navigateByUrl('/', { replaceUrl: true });
   }
 }
