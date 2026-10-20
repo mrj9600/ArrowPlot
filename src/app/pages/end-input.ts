@@ -12,13 +12,14 @@ import {
 import { Router } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
-import { Arrow, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
+import { Arrow, CourseLog, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
 import {
   CENTRE_STEPS,
   guessCentreCm,
   nearestStep,
   usesCentreDistance,
 } from '../core/centre-distance';
+import { ANGLE_PRESETS, angleText, CONDITION_GROUPS, isEmptyLog } from '../core/course-log';
 import { endLimit, targetNumber, usesTargetNumbers } from '../core/numbering';
 import { nowTime, Repo } from '../core/repo.service';
 import {
@@ -232,6 +233,93 @@ interface Placed {
             Last target of the course: continue at 1
           </button>
         }
+        @if (numbered()) {
+          <details class="log card" [open]="logOpen()" (toggle)="logToggled($event)">
+            <summary>
+              Course log
+              <span class="small muted">{{ logSummary() }}</span>
+            </summary>
+            <div class="log-body">
+              <div class="row dists">
+                <label class="field"
+                  ><span>Judged (m)</span>
+                  <input
+                    class="input"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="any"
+                    [value]="log().estimated ?? ''"
+                    (input)="setLog('estimated', $any($event.target).value)"
+                  />
+                </label>
+                <label class="field"
+                  ><span>Measured (m)</span>
+                  <input
+                    class="input"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="any"
+                    [value]="log().measured ?? ''"
+                    (input)="setLog('measured', $any($event.target).value)"
+                  />
+                </label>
+              </div>
+              @if (judgeError(); as j) {
+                <div class="small" [class.good]="j.ok">{{ j.text }}</div>
+              }
+              <div class="group">
+                <div class="row">
+                  <span class="small muted" style="flex:1">Angle</span>
+                  <input
+                    class="input deg"
+                    type="number"
+                    inputmode="numeric"
+                    min="-60"
+                    max="60"
+                    placeholder="°"
+                    [value]="log().angle ?? ''"
+                    (input)="setLog('angle', $any($event.target).value)"
+                    aria-label="Angle in degrees, uphill positive"
+                  />
+                </div>
+                <div class="chips">
+                  @for (a of anglePresets; track a.deg) {
+                    <button
+                      type="button"
+                      class="chip"
+                      [class.on]="log().angle === a.deg"
+                      (click)="setAngle(a.deg)"
+                    >
+                      {{ a.label }}
+                    </button>
+                  }
+                </div>
+                @if (log().angle != null) {
+                  <span class="small muted">{{ angleText(log().angle!) }}</span>
+                }
+              </div>
+              @for (g of conditionGroups; track g.name) {
+                <div class="group">
+                  <span class="small muted">{{ g.name }}</span>
+                  <div class="chips">
+                    @for (c of g.items; track c.key) {
+                      <button
+                        type="button"
+                        class="chip"
+                        [class.on]="log().conditions?.includes(c.key)"
+                        (click)="toggleCondition(c.key)"
+                      >
+                        {{ c.label }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </details>
+        }
       </div>
     }
   `,
@@ -339,6 +427,35 @@ interface Placed {
     .wrap {
       justify-self: end;
     }
+    .log summary {
+      font-weight: 650;
+      cursor: pointer;
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+    }
+    .log-body {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .log .dists {
+      gap: 10px;
+    }
+    .log .dists .field {
+      flex: 1;
+    }
+    .log .group {
+      display: grid;
+      gap: 4px;
+    }
+    .log .deg {
+      width: 72px;
+      min-height: 34px;
+    }
+    .log .good {
+      color: var(--good);
+    }
     .dist {
       display: grid;
       gap: 2px;
@@ -381,6 +498,33 @@ export class EndInputPage {
     this.zoomCenter() ? BASE_VIEW / this.zoomFactor() : BASE_VIEW,
   );
   protected readonly comment = signal('');
+  /** 3D and field: judged and measured distance, angle and conditions for this target. */
+  protected readonly log = signal<CourseLog>({});
+  protected readonly logOpen = signal(false);
+  protected readonly conditionGroups = CONDITION_GROUPS;
+  protected readonly anglePresets = ANGLE_PRESETS;
+  protected readonly angleText = angleText;
+  protected readonly logSummary = computed(() => {
+    const l = this.log();
+    const parts = [
+      l.estimated != null ? `judged ${l.estimated} m` : '',
+      l.measured != null ? `measured ${l.measured} m` : '',
+      l.angle != null ? angleText(l.angle) : '',
+      l.conditions?.length ? `${l.conditions.length} conditions` : '',
+    ];
+    return parts.filter(Boolean).join(' · ');
+  });
+  protected readonly judgeError = computed(() => {
+    const { estimated: e, measured: m } = this.log();
+    if (e == null || !m) return null;
+    const d = Math.round((e - m) * 10) / 10;
+    const pct = Math.round((100 * (e - m)) / m);
+    if (!d) return { ok: true, text: 'Spot on' };
+    return {
+      ok: Math.abs(pct) <= 5,
+      text: `Judged ${Math.abs(d)} m too ${d > 0 ? 'far' : 'short'} (${pct > 0 ? '+' : ''}${pct}%)`,
+    };
+  });
   protected readonly saving = signal(false);
   protected readonly placing = signal<Placed | null>(null);
   private pointerId: number | null = null;
@@ -557,6 +701,7 @@ export class EndInputPage {
     this.shots.set(shots.map((s, i) => ({ ...s, index: i })));
     this.positioned.set(shots.map((s) => s.ring !== NOT_ENTERED && !!this.existing?.exact));
     this.comment.set(this.existing?.comment ?? '');
+    this.log.set({ ...(this.existing?.log ?? {}) });
     const first = shots.findIndex((s) => s.ring === NOT_ENTERED);
     this.current.set(first < 0 ? 0 : first);
     this.distIndex.set(null);
@@ -569,6 +714,7 @@ export class EndInputPage {
         : pref,
     );
     this.zoomFactor.set(await this.repo.getSetting('inputZoom', 3));
+    this.logOpen.set(await this.repo.getSetting('courseLogOpen', false));
   }
 
   protected label(s: Shot) {
@@ -838,6 +984,27 @@ export class EndInputPage {
     this.round.set({ ...r, wrapAt });
   }
 
+  protected setLog(key: 'estimated' | 'measured' | 'angle', v: string) {
+    const n = v.trim() === '' ? null : Number(v);
+    this.log.update((l) => ({ ...l, [key]: n === null || !isFinite(n) ? null : n }));
+  }
+  protected setAngle(deg: number) {
+    this.log.update((l) => ({ ...l, angle: l.angle === deg ? null : deg }));
+  }
+  protected toggleCondition(key: string) {
+    this.log.update((l) => {
+      const c = l.conditions ?? [];
+      return { ...l, conditions: c.includes(key) ? c.filter((x) => x !== key) : [...c, key] };
+    });
+  }
+  /** The log stays open from target to target once opened. */
+  protected logToggled(e: Event) {
+    const open = (e.target as HTMLDetailsElement).open;
+    if (open === this.logOpen()) return;
+    this.logOpen.set(open);
+    void this.repo.setSetting('courseLogOpen', open);
+  }
+
   protected note() {
     const v = prompt('Note for this end', this.comment());
     if (v !== null) this.comment.set(v.trim());
@@ -854,6 +1021,7 @@ export class EndInputPage {
       exact: this.positioned().every(Boolean),
       saveTime: this.existing?.saveTime ?? nowTime(),
       comment: this.comment(),
+      log: isEmptyLog(this.log()) ? null : this.log(),
       shots: this.shots(),
     };
   }
@@ -871,6 +1039,7 @@ export class EndInputPage {
     const same =
       stored &&
       stored.comment === end.comment &&
+      JSON.stringify(stored.log ?? null) === JSON.stringify(end.log) &&
       stored.exact === end.exact &&
       JSON.stringify(stored.shots) === JSON.stringify(end.shots);
     if (!same) await this.persist(end);

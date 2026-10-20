@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { db } from '../core/db';
+import { logEntries } from '../core/course-log';
 import { formatDimension } from '../core/dimension';
 import { f1, fmtDate, pct } from '../core/format';
 import { Arrow, Bow, Dimension, End, Round, Session } from '../core/models';
@@ -8,6 +9,7 @@ import { live } from '../core/repo.service';
 import { analyse, plotShots, PlotShot } from '../core/stats';
 import { faceLabel } from '../core/targets';
 import { AnalysisView } from '../ui/analysis-view';
+import { CourseLogView } from '../ui/course-log-view';
 import { AppBar } from '../ui/app-bar';
 import { ChartPoint, LineChart } from '../ui/line-chart';
 
@@ -28,7 +30,7 @@ const PERIODS = [
 
 @Component({
   selector: 'app-stats',
-  imports: [AppBar, AnalysisView, LineChart, RouterLink],
+  imports: [AppBar, AnalysisView, LineChart, RouterLink, CourseLogView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar title="Statistics" />
@@ -118,6 +120,11 @@ const PERIODS = [
           }
           <app-analysis [a]="analysis()" [sighted]="sighted()" />
         </div>
+
+        @if (courseLog().length) {
+          <div class="section-title">Distance judging and conditions</div>
+          <div class="card"><app-course-log-view [entries]="courseLog()" /></div>
+        }
 
         <div class="section-title">Sessions</div>
         <div class="card flush scroll-x">
@@ -262,6 +269,11 @@ export class StatsPage {
       .map((t) => ({ t, a: analyse(this.shotsBySession().get(t.id!) ?? []) }))
       .filter((r) => r.a.n > 0)
       .reverse(),
+  );
+
+  /** Course logs of the selected 3D and field targets. */
+  protected readonly courseLog = computed(() =>
+    logEntries(this.roundsFor(), (id) => this.endsByRound().get(id) ?? []),
   );
 
   protected readonly analysis = computed(() => analyse([...this.shotsBySession().values()].flat()));

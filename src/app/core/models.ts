@@ -136,6 +136,19 @@ export interface End {
   comment: string;
   shots: Shot[];
   imageIds?: number[];
+  /** 3D and field: judged and measured distance, angle and conditions at this target. */
+  log?: CourseLog | null;
+}
+
+export interface CourseLog {
+  /** Distance the archer judged, in metres. */
+  estimated?: number | null;
+  /** Measured distance (rangefinder, pacing or a marked peg), in metres. */
+  measured?: number | null;
+  /** Shooting angle in degrees: + uphill, − downhill. */
+  angle?: number | null;
+  /** Conditions at the target (keys of CONDITION_GROUPS). */
+  conditions?: string[];
 }
 
 export interface StoredImage {

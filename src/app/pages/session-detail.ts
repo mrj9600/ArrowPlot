@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { liveQuery } from 'dexie';
 import { from, switchMap } from 'rxjs';
 import { analyseBundle, isSighted, loadSession, SessionBundle } from '../core/bundle';
+import { logEntries } from '../core/course-log';
 import { formatDimension } from '../core/dimension';
 import { avg, fmtDate, pct } from '../core/format';
 import { Round } from '../core/models';
@@ -11,6 +12,7 @@ import { Repo } from '../core/repo.service';
 import { endLimit } from '../core/numbering';
 import { faceLabel } from '../core/targets';
 import { AnalysisView } from '../ui/analysis-view';
+import { CourseLogView } from '../ui/course-log-view';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
 import { TargetFace } from '../ui/target-face';
@@ -25,7 +27,7 @@ const WEATHER: Record<string, string> = {
 
 @Component({
   selector: 'app-session-detail',
-  imports: [AppBar, RouterLink, Icon, TargetFace, AnalysisView],
+  imports: [AppBar, RouterLink, Icon, TargetFace, AnalysisView, CourseLogView],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (b(); as b) {
@@ -110,6 +112,10 @@ const WEATHER: Record<string, string> = {
 
         <div class="section-title">Analysis</div>
         <div class="card"><app-analysis [a]="analysis()" [sighted]="sighted()" /></div>
+        @if (courseLog().length) {
+          <div class="section-title">Distance judging and conditions</div>
+          <div class="card"><app-course-log-view [entries]="courseLog()" /></div>
+        }
       </div>
     }
   `,
@@ -162,6 +168,10 @@ export class SessionDetailPage {
     toObservable(this.id).pipe(switchMap((id) => from(liveQuery(() => loadSession(+id))))),
     { initialValue: null as SessionBundle | null },
   );
+  protected readonly courseLog = computed(() => {
+    const b = this.b();
+    return b ? logEntries(b.rounds, (id) => b.ends.get(id) ?? []) : [];
+  });
   protected readonly analysis = computed(() => (this.b() ? analyseBundle(this.b()!) : null));
   protected readonly sighted = computed(() => isSighted(this.b()?.bow ?? null));
 
