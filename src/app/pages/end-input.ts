@@ -12,7 +12,7 @@ import { Router } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { Arrow, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
-import { targetNumber, usesTargetNumbers } from '../core/numbering';
+import { endLimit, targetNumber, usesTargetNumbers } from '../core/numbering';
 import { nowTime, Repo } from '../core/repo.service';
 import {
   contrastOn,
@@ -371,7 +371,8 @@ export class EndInputPage {
   protected readonly endIndex = computed(() => +this.end());
   protected readonly isLast = computed(() => {
     const r = this.round();
-    return !!r?.maxEndCount && this.endIndex() + 1 >= r.maxEndCount;
+    const limit = r ? endLimit(r) : null;
+    return !!limit && this.endIndex() + 1 >= limit;
   });
   /** 3D and field rounds are numbered by target (post), from where the round started. */
   protected readonly numbered = computed(() => !!this.round() && usesTargetNumbers(this.round()!));
@@ -381,10 +382,11 @@ export class EndInputPage {
   protected readonly title = computed(() => {
     const r = this.round();
     const k = this.endIndex() + 1;
+    const n = r ? endLimit(r) : null;
     if (this.numbered()) {
-      return `Target ${this.targetNo()} (${r?.maxEndCount ? `${k} of ${r.maxEndCount}` : k})`;
+      return `Target ${this.targetNo()} (${n ? `${k} of ${n}` : k})`;
     }
-    return `End ${r?.maxEndCount ? `${k} / ${r.maxEndCount}` : k}`;
+    return `End ${n ? `${k} / ${n}` : k}`;
   });
   /** Open-ended course rounds that started past target 1 need to be told where the course ends. */
   protected readonly canWrap = computed(() => {

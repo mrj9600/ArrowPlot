@@ -8,6 +8,7 @@ import { formatDimension } from '../core/dimension';
 import { avg, fmtDate, pct } from '../core/format';
 import { Round } from '../core/models';
 import { Repo } from '../core/repo.service';
+import { endLimit } from '../core/numbering';
 import { faceLabel } from '../core/targets';
 import { AnalysisView } from '../ui/analysis-view';
 import { AppBar } from '../ui/app-bar';
@@ -187,7 +188,8 @@ export class SessionDetailPage {
     if (!b) return null;
     for (const r of b.rounds) {
       const n = b.ends.get(r.id!)?.length ?? 0;
-      if (!r.maxEndCount || n < r.maxEndCount) return { round: r.id, end: n };
+      const limit = endLimit(r);
+      if (!limit || n < limit) return { round: r.id, end: n };
     }
     return null;
   });
@@ -197,9 +199,8 @@ export class SessionDetailPage {
   }
   protected endsText(r: Round) {
     const n = this.b()?.ends.get(r.id!)?.length ?? 0;
-    return r.maxEndCount
-      ? `${n}/${r.maxEndCount} ends × ${r.shotsPerEnd}`
-      : `${n} ends × ${r.shotsPerEnd}`;
+    const limit = endLimit(r);
+    return limit ? `${n}/${limit} ends × ${r.shotsPerEnd}` : `${n} ends × ${r.shotsPerEnd}`;
   }
 
   protected async remove() {

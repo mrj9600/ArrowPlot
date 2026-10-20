@@ -8,7 +8,7 @@ import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { avg, pct } from '../core/format';
 import { End, NOT_ENTERED, Shot } from '../core/models';
-import { targetNumber, usesTargetNumbers } from '../core/numbering';
+import { endLimit, targetNumber, usesTargetNumbers } from '../core/numbering';
 import { Repo } from '../core/repo.service';
 import {
   contrastOn,
@@ -163,7 +163,8 @@ export class RoundDetailPage {
   });
   protected readonly canAdd = computed(() => {
     const r = this.round();
-    return !!r && (!r.maxEndCount || this.ends().length < r.maxEndCount);
+    const limit = r ? endLimit(r) : null;
+    return !!r && (!limit || this.ends().length < limit);
   });
   protected readonly nextRoundId = computed(() => {
     const b = this.b();

@@ -19,3 +19,11 @@ export function targetNumber(
   const course = r.maxEndCount || r.wrapAt || 0;
   return course ? ((start - 1 + endIndex) % course) + 1 : start + endIndex;
 }
+
+/**
+ * How many ends the round has, if known: its end count, or the course size once an
+ * open-ended course round has wrapped around (it is done when the start target comes back).
+ */
+export function endLimit(r: Pick<Round, 'maxEndCount' | 'wrapAt'>): number | null {
+  return r.maxEndCount || r.wrapAt || null;
+}
