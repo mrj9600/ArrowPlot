@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { avg, fmtMonth, pct } from '../core/format';
-import { Training } from '../core/models';
-import { live, Repo } from '../core/repo.service';
+import { Bow, Round, Training } from '../core/models';
+import { live, Repo, todayIso } from '../core/repo.service';
+import { getTarget, TargetKind } from '../core/targets';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
 import { InstallCard } from '../ui/install-card';
@@ -16,30 +17,127 @@ interface Row {
   wd: string;
 }
 
+/** 'all', a number of days back ('30', '90', '365') or a year ('y2025'). */
+type Period = string;
+
+interface Filter {
+  q: string;
+  period: Period;
+  kind: 'all' | TargetKind;
+  bowId: number;
+}
+
+const NO_FILTER: Filter = { q: '', period: 'all', kind: 'all', bowId: 0 };
+const KIND_LABEL: Record<TargetKind, string> = {
+  target: 'Target face',
+  field: 'Field',
+  '3d': '3D',
+};
+
 @Component({
   selector: 'app-trainings',
   imports: [AppBar, RouterLink, Icon, InstallCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar title="ArrowPlot">
+      <button
+        class="icon-btn filter-btn"
+        type="button"
+        (click)="open.set(!open())"
+        [attr.aria-expanded]="open()"
+        aria-label="Filter trainings"
+      >
+        <app-icon name="filter" />
+        @if (activeCount()) {
+          <span class="badge">{{ activeCount() }}</span>
+        }
+      </button>
       <a class="icon-btn" routerLink="/timer" aria-label="Shooting timer"
         ><app-icon name="timer"
       /></a>
     </app-bar>
     <div class="page">
       <app-install-card [compact]="true" />
-      @if (loaded() && !groups().length) {
+
+      @if (open()) {
+        <div class="card filters">
+          <input
+            class="input"
+            type="search"
+            placeholder="Search title or location"
+            [value]="filter().q"
+            (input)="set({ q: $any($event.target).value })"
+          />
+          <div class="grid2">
+            <label class="field"
+              ><span>Period</span>
+              <select class="input" (change)="set({ period: $any($event.target).value })">
+                @for (p of periods(); track p.key) {
+                  <option [value]="p.key" [selected]="p.key === filter().period">
+                    {{ p.label }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label class="field"
+              ><span>Kind</span>
+              <select class="input" (change)="set({ kind: $any($event.target).value })">
+                <option value="all" [selected]="filter().kind === 'all'">All kinds</option>
+                @for (k of kinds; track k) {
+                  <option [value]="k" [selected]="filter().kind === k">{{ kindLabel[k] }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          @if (bows().length) {
+            <label class="field"
+              ><span>Bow</span>
+              <select class="input" (change)="set({ bowId: +$any($event.target).value })">
+                <option value="0" [selected]="!filter().bowId">All bows</option>
+                @for (b of bows(); track b.id) {
+                  <option [value]="b.id" [selected]="b.id === filter().bowId">{{ b.name }}</option>
+                }
+              </select>
+            </label>
+          }
+          <div class="row">
+            <span class="small muted" style="flex:1"
+              >Showing {{ shown() }} of {{ data().trainings.length }}</span
+            >
+            <button
+              class="btn sm ghost"
+              type="button"
+              (click)="clear()"
+              [disabled]="!activeCount()"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      } @else if (activeCount()) {
+        <button class="chip on summary" type="button" (click)="open.set(true)">
+          <app-icon name="filter" /> {{ summary() }} · {{ shown() }} of
+          {{ data().trainings.length }}
+        </button>
+      }
+
+      @if (loaded() && !data().trainings.length) {
         <div class="empty">
           <img src="logo.svg" alt="" />
           <h2>No trainings yet</h2>
           <p>
-            Start a training with the + button, or bring your history over from MyTargets or
-            MantisX.
+            Start a training with the + button, or bring your history over from MyTargets, MantisX
+            or 3D SKill Board (under More).
           </p>
           <div class="row wrap" style="justify-content:center">
             <a class="btn" routerLink="/import/mytargets">Import MyTargets backup</a>
             <a class="btn" routerLink="/import/mantisx">Import MantisX</a>
           </div>
+        </div>
+      } @else if (loaded() && !shown()) {
+        <div class="empty">
+          <p>No trainings match the filter.</p>
+          <button class="btn" type="button" (click)="clear()">Clear filter</button>
         </div>
       }
       @for (g of groups(); track g.month) {
@@ -91,14 +189,45 @@ interface Row {
       text-transform: uppercase;
       font-weight: 600;
     }
+    .filters {
+      display: grid;
+      gap: 10px;
+    }
+    .filter-btn {
+      position: relative;
+    }
+    .badge {
+      position: absolute;
+      top: 4px;
+      right: 2px;
+      min-width: 17px;
+      height: 17px;
+      border-radius: 9px;
+      background: var(--gold);
+      color: #1d1d1d;
+      font: 700 11px/17px var(--font);
+      text-align: center;
+    }
+    .summary {
+      justify-self: start;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      --icon-size: 16px;
+    }
   `,
 })
 export class TrainingsPage {
   private readonly repo = inject(Repo);
   protected readonly pct = pct;
   protected readonly avg = avg;
+  protected readonly kinds: TargetKind[] = ['target', 'field', '3d'];
+  protected readonly kindLabel = KIND_LABEL;
 
-  private readonly data = live(
+  protected readonly open = signal(false);
+  protected readonly filter = signal<Filter>(NO_FILTER);
+
+  protected readonly data = live(
     async () => {
       const [trainings, bows, rounds] = await Promise.all([
         this.repo.trainingsNewestFirst(),
@@ -107,17 +236,100 @@ export class TrainingsPage {
       ]);
       return { trainings, bows, rounds, loaded: true };
     },
-    { trainings: [] as Training[], bows: [], rounds: [], loaded: false } as {
-      trainings: Training[];
-      bows: { id?: number; name: string }[];
-      rounds: { trainingId: number; distance: import('../core/models').Dimension }[];
-      loaded: boolean;
+    {
+      trainings: [] as Training[],
+      bows: [] as Bow[],
+      rounds: [] as Round[],
+      loaded: false,
     },
   );
   protected readonly loaded = computed(() => this.data().loaded);
+  protected readonly bows = computed(() => this.data().bows);
+
+  constructor() {
+    this.repo.getSetting<Filter>('trainingFilter', NO_FILTER).then((f) => {
+      this.filter.set({ ...NO_FILTER, ...f });
+    });
+  }
+
+  protected set(p: Partial<Filter>) {
+    this.filter.update((f) => ({ ...f, ...p }));
+    this.repo.setSetting('trainingFilter', this.filter());
+  }
+  protected clear() {
+    this.filter.set(NO_FILTER);
+    this.repo.setSetting('trainingFilter', NO_FILTER);
+  }
+
+  /** Fixed ranges plus every year that has trainings. */
+  protected readonly periods = computed(() => {
+    const years = [...new Set(this.data().trainings.map((t) => t.date.slice(0, 4)))]
+      .sort()
+      .reverse();
+    return [
+      { key: 'all', label: 'All time' },
+      { key: '30', label: 'Last 30 days' },
+      { key: '90', label: 'Last 90 days' },
+      { key: '365', label: 'Last 12 months' },
+      ...years.map((y) => ({ key: `y${y}`, label: y })),
+    ];
+  });
+
+  protected readonly activeCount = computed(() => {
+    const f = this.filter();
+    return [f.q.trim(), f.period !== 'all', f.kind !== 'all', f.bowId].filter(Boolean).length;
+  });
+
+  protected readonly summary = computed(() => {
+    const f = this.filter();
+    return [
+      f.q.trim() ? `“${f.q.trim()}”` : '',
+      f.period !== 'all' ? this.periods().find((p) => p.key === f.period)?.label : '',
+      f.kind !== 'all' ? KIND_LABEL[f.kind] : '',
+      f.bowId ? this.bows().find((b) => b.id === f.bowId)?.name : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  });
+
+  /** Kinds of face shot in each training. */
+  private readonly kindsByTraining = computed(() => {
+    const m = new Map<number, Set<TargetKind>>();
+    for (const r of this.data().rounds) {
+      let s = m.get(r.trainingId);
+      if (!s) m.set(r.trainingId, (s = new Set()));
+      s.add(getTarget(r.targetId).kind);
+    }
+    return m;
+  });
+
+  private readonly visible = computed(() => {
+    const f = this.filter();
+    const q = f.q.trim().toLowerCase();
+    let from = '';
+    let to = '9999';
+    if (f.period.startsWith('y')) {
+      from = `${f.period.slice(1)}-01-01`;
+      to = `${f.period.slice(1)}-12-31`;
+    } else if (f.period !== 'all') {
+      const d = new Date();
+      d.setDate(d.getDate() - Number(f.period));
+      from = d.toISOString().slice(0, 10);
+      to = todayIso();
+    }
+    return this.data().trainings.filter(
+      (t) =>
+        t.date >= from &&
+        t.date <= to &&
+        (!q || t.title.toLowerCase().includes(q) || t.location.toLowerCase().includes(q)) &&
+        (f.kind === 'all' || !!this.kindsByTraining().get(t.id!)?.has(f.kind)) &&
+        (!f.bowId || t.bowId === f.bowId),
+    );
+  });
+  protected readonly shown = computed(() => this.visible().length);
 
   protected readonly groups = computed(() => {
-    const { trainings, bows, rounds } = this.data();
+    const { bows, rounds } = this.data();
     const bowName = new Map(bows.map((b) => [b.id, b.name]));
     const dists = new Map<number, string[]>();
     for (const r of rounds) {
@@ -127,7 +339,7 @@ export class TrainingsPage {
       dists.set(r.trainingId, l);
     }
     const out: { month: string; rows: Row[] }[] = [];
-    for (const t of trainings) {
+    for (const t of this.visible()) {
       const month = fmtMonth(t.date);
       if (out.at(-1)?.month !== month) out.push({ month, rows: [] });
       const [y, m, d] = t.date.split('-').map(Number);
