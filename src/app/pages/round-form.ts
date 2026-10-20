@@ -1,8 +1,17 @@
-import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { db } from '../core/db';
 import { dim } from '../core/dimension';
 import { Round, RoundTemplate } from '../core/models';
+import { usesTargetNumbers } from '../core/numbering';
 import { Repo } from '../core/repo.service';
 import { AppBar } from '../ui/app-bar';
 import { RoundSettings } from '../ui/round-settings';
@@ -16,6 +25,25 @@ import { RoundSettings } from '../ui/round-settings';
     <app-bar [title]="id() ? 'Edit round' : 'New round'" [back]="backUrl()" />
     <div class="page">
       <div class="card"><app-round-settings [(value)]="tpl" /></div>
+      @if (numbered()) {
+        <label class="field card"
+          ><span>Start at target</span>
+          <input
+            class="input"
+            type="number"
+            inputmode="numeric"
+            min="1"
+            max="99"
+            placeholder="1"
+            [value]="start() > 1 ? start() : ''"
+            (input)="setStart(+$any($event.target).value)"
+          />
+          <span class="small muted"
+            >On a course you often start at another target. Targets are numbered from here and wrap
+            to 1 after the last one.</span
+          >
+        </label>
+      }
       @if (id()) {
         <p class="notice small">
           Changing the face or scoring re-scores this round's arrows from their saved rings. Ends
@@ -65,6 +93,7 @@ export class RoundFormPage {
       const r = await db.rounds.get(+id);
       if (!r) return;
       this.existing = r;
+      this.start.set(r.startTarget || 1);
       this.backUrl.set(`/round/${r.id}`);
       this.comment.set(r.comment);
       this.tpl.set({
@@ -92,6 +121,13 @@ export class RoundFormPage {
     }
   }
 
+  /** 3D and field: the target the round starts at. */
+  protected readonly start = signal(1);
+  protected readonly numbered = computed(() => usesTargetNumbers(this.tpl()));
+  protected setStart(v: number) {
+    this.start.set(isFinite(v) && v >= 1 ? Math.min(99, Math.round(v)) : 1);
+  }
+
   protected async save() {
     const t = this.tpl();
     if (this.existing) {
@@ -104,10 +140,14 @@ export class RoundFormPage {
         shotsPerEnd: t.shotsPerEnd,
         maxEndCount: t.endCount || null,
         comment: this.comment().trim(),
+        startTarget: this.numbered() && this.start() > 1 ? this.start() : null,
       });
       this.router.navigate(['/round', this.existing.id], { replaceUrl: true });
     } else if (this.sessionId()) {
-      const rid = await this.repo.addRound(+this.sessionId()!, t);
+      const rid = await this.repo.addRound(+this.sessionId()!, {
+        ...t,
+        startTarget: this.numbered() ? this.start() : 1,
+      });
       await this.router.navigate(['/round', rid], { replaceUrl: true });
       this.router.navigate(['/round', rid, 'end', 0]);
     }

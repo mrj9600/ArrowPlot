@@ -100,6 +100,10 @@ export interface Round {
   targetDiameter: Dimension;
   comment: string;
   score: Score;
+  /** 3D and field: the target (post) the round started at; empty = 1. */
+  startTarget?: number | null;
+  /** Rounds without an end count: the course's last target, after which numbering goes to 1. */
+  wrapAt?: number | null;
 }
 
 /**
@@ -145,6 +149,8 @@ export interface RoundTemplate {
   targetDiameter: Dimension;
   shotsPerEnd: number;
   endCount: number;
+  /** Only when creating a session: the target to start at (3D and field). */
+  startTarget?: number;
 }
 
 export interface StandardRound {

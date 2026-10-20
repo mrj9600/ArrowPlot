@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { Arrow, End, NOT_ENTERED, Round, Shot, Session } from '../core/models';
+import { targetNumber, usesTargetNumbers } from '../core/numbering';
 import { nowTime, Repo } from '../core/repo.service';
 import {
   contrastOn,
@@ -196,6 +197,11 @@ interface Placed {
             <app-icon name="check" /> {{ isLast() ? 'Finish' : 'Next end' }}
           </button>
         </div>
+        @if (canWrap()) {
+          <button class="btn sm wrap" type="button" (click)="wrapHere()">
+            Last target of the course: continue at 1
+          </button>
+        }
       </div>
     }
   `,
@@ -300,6 +306,9 @@ interface Placed {
       gap: 8px;
       align-items: center;
     }
+    .wrap {
+      justify-self: end;
+    }
     .numbers {
       display: grid;
       gap: 6px;
@@ -364,12 +373,23 @@ export class EndInputPage {
     const r = this.round();
     return !!r?.maxEndCount && this.endIndex() + 1 >= r.maxEndCount;
   });
+  /** 3D and field rounds are numbered by target (post), from where the round started. */
+  protected readonly numbered = computed(() => !!this.round() && usesTargetNumbers(this.round()!));
+  protected readonly targetNo = computed(() =>
+    this.round() ? targetNumber(this.round()!, this.endIndex()) : 0,
+  );
   protected readonly title = computed(() => {
     const r = this.round();
-    const n = r?.maxEndCount
-      ? `${this.endIndex() + 1} / ${r.maxEndCount}`
-      : `${this.endIndex() + 1}`;
-    return `End ${n}`;
+    const k = this.endIndex() + 1;
+    if (this.numbered()) {
+      return `Target ${this.targetNo()} (${r?.maxEndCount ? `${k} of ${r.maxEndCount}` : k})`;
+    }
+    return `End ${r?.maxEndCount ? `${k} / ${r.maxEndCount}` : k}`;
+  });
+  /** Open-ended course rounds that started past target 1 need to be told where the course ends. */
+  protected readonly canWrap = computed(() => {
+    const r = this.round();
+    return !!r && this.numbered() && !r.maxEndCount && !r.wrapAt && (r.startTarget || 1) > 1;
   });
   protected readonly subtitle = computed(() => {
     const r = this.round();
@@ -727,6 +747,15 @@ export class EndInputPage {
     );
     this.positioned.update((l) => l.map((v, j) => (j === target ? false : v)));
     this.current.set(target);
+  }
+
+  /** Marks this target as the course's last one: numbering continues at 1 after it. */
+  protected async wrapHere() {
+    const r = this.round();
+    if (!r) return;
+    const wrapAt = this.targetNo();
+    await db.rounds.update(r.id!, { wrapAt });
+    this.round.set({ ...r, wrapAt });
   }
 
   protected note() {

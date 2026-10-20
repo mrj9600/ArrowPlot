@@ -8,6 +8,7 @@ import { db } from '../core/db';
 import { formatDimension } from '../core/dimension';
 import { avg, pct } from '../core/format';
 import { End, NOT_ENTERED, Shot } from '../core/models';
+import { targetNumber, usesTargetNumbers } from '../core/numbering';
 import { Repo } from '../core/repo.service';
 import {
   contrastOn,
@@ -67,7 +68,7 @@ import { ImageThumb } from '../ui/image-thumb';
               @for (e of rows(); track e.end.id) {
                 <li>
                   <a class="item" [routerLink]="['/round', r.id, 'end', e.end.index]">
-                    <div class="n muted">{{ e.end.index + 1 }}</div>
+                    <div class="n muted">{{ e.no }}</div>
                     <div class="main">
                       <div class="pills">
                         @for (s of e.pills; track $index) {
@@ -199,7 +200,13 @@ export class RoundDetailPage {
           ink: fill === 'transparent' ? 'inherit' : contrastOn(fill),
         };
       });
-      return { end, score: s.reached, cumulative: cum, pills };
+      return {
+        no: usesTargetNumbers(r) ? targetNumber(r, end.index) : end.index + 1,
+        end,
+        score: s.reached,
+        cumulative: cum,
+        pills,
+      };
     });
   });
 

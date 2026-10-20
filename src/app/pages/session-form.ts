@@ -11,6 +11,7 @@ import { Router, RouterLink } from '@angular/router';
 import { db } from '../core/db';
 import { dim } from '../core/dimension';
 import { Arrow, Bow, Dimension, LengthUnit, StandardRound, Session } from '../core/models';
+import { usesTargetNumbers } from '../core/numbering';
 import { Repo, todayIso } from '../core/repo.service';
 import { describeRoundSetup } from '../core/standard-rounds';
 import { AppBar } from '../ui/app-bar';
@@ -73,6 +74,24 @@ interface LastSession {
                   {{ s.rounds.length > 1 ? 'Round ' + (i + 1) + ': ' : '' }}{{ describe(r) }}
                 </span>
                 <div class="round-inputs">
+                  @if (numbered(r)) {
+                    <label class="ends">
+                      <span class="small muted">Start at</span>
+                      <input
+                        class="input"
+                        type="number"
+                        inputmode="numeric"
+                        min="1"
+                        max="99"
+                        placeholder="1"
+                        [value]="(starts()[i] ?? 1) > 1 ? starts()[i] : ''"
+                        (input)="setStart(i, +$any($event.target).value)"
+                        [attr.aria-label]="
+                          'Start at target' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
+                        "
+                      />
+                    </label>
+                  }
                   <label class="ends">
                     <span class="small muted">Distance</span>
                     <input
@@ -270,6 +289,9 @@ export class SessionFormPage {
   protected readonly ends = signal<number[]>([]);
   /** Distance per round of the chosen definition; value -1 = no distance. */
   protected readonly distances = signal<Dimension[]>([]);
+  /** 3D and field: the target each round starts at. */
+  protected readonly starts = signal<number[]>([]);
+  protected readonly numbered = usesTargetNumbers;
   protected readonly bowId = signal<number | null>(null);
   protected readonly arrowId = signal<number | null>(null);
   protected readonly location = signal('');
@@ -333,6 +355,7 @@ export class SessionFormPage {
     this.roundId.set(id);
     this.ends.set(this.selectedRound()?.rounds.map((r) => r.endCount || 0) ?? []);
     this.distances.set(this.selectedRound()?.rounds.map((r) => r.distance) ?? []);
+    this.starts.set(this.selectedRound()?.rounds.map(() => 1) ?? []);
   }
   protected setDistance(i: number, v: number) {
     const unit = this.distances()[i]?.unit ?? 'm';
@@ -341,6 +364,10 @@ export class SessionFormPage {
   }
   protected setUnit(i: number, unit: LengthUnit) {
     this.distances.update((l) => l.map((x, j) => (j === i ? { ...x, unit } : x)));
+  }
+  protected setStart(i: number, v: number) {
+    const n = isFinite(v) && v >= 1 ? Math.min(99, Math.round(v)) : 1;
+    this.starts.update((l) => l.map((x, j) => (j === i ? n : x)));
   }
   protected setEnds(i: number, v: number) {
     const n = isFinite(v) ? Math.min(99, Math.max(0, Math.round(v))) : 0;
@@ -406,6 +433,7 @@ export class SessionFormPage {
           ...r,
           endCount: this.ends()[i] ?? r.endCount,
           distance: this.distances()[i] ?? r.distance,
+          startTarget: this.starts()[i] ?? 1,
         })),
       );
       await this.repo.setSetting('lastSession', {

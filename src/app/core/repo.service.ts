@@ -78,6 +78,7 @@ export class Repo {
           targetDiameter: r.targetDiameter,
           comment: '',
           score: { ...EMPTY_SCORE },
+          startTarget: r.startTarget && r.startTarget > 1 ? r.startTarget : null,
         })),
       );
       return id;
@@ -116,6 +117,7 @@ export class Repo {
       targetDiameter: tpl.targetDiameter,
       comment: '',
       score: { ...EMPTY_SCORE },
+      startTarget: tpl.startTarget && tpl.startTarget > 1 ? tpl.startTarget : null,
     });
   }
 
