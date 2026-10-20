@@ -143,6 +143,12 @@ interface Placed {
             @if (spotCount() > 1) {
               <div class="spot-tag">Spot {{ spotView()! + 1 }} / {{ spotCount() }}</div>
             }
+            @if (distShot(); as d) {
+              <!-- Shown here too: the finger on the slider hides the value below. -->
+              <div class="dist-tag" [class.big]="sliding()">
+                Arrow {{ d.index + 1 }} ≈ {{ d.cm }} cm
+              </div>
+            }
           </div>
         } @else {
           <div class="keys">
@@ -175,6 +181,10 @@ interface Placed {
               step="1"
               [value]="d.step"
               (input)="setCm(+$any($event.target).value)"
+              (pointerdown)="sliding.set(true)"
+              (pointerup)="sliding.set(false)"
+              (pointercancel)="sliding.set(false)"
+              (change)="sliding.set(false)"
               [attr.aria-valuetext]="d.cm + ' cm'"
             />
           </label>
@@ -386,6 +396,25 @@ interface Placed {
       padding: 3px 10px;
       border-radius: 8px;
       font-size: 16px;
+    }
+    .dist-tag {
+      position: absolute;
+      right: 4px;
+      top: 4px;
+      font-size: 13px;
+      font-weight: 650;
+      background: var(--surface);
+      padding: 2px 8px;
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      pointer-events: none;
+      transition: font-size 0.1s;
+    }
+    .dist-tag.big {
+      font-size: 22px;
+      padding: 4px 12px;
+      background: var(--bar);
+      color: #fff;
     }
     .spot-tag {
       position: absolute;
@@ -620,6 +649,10 @@ export class EndInputPage {
   );
   /** 3D: the plotted arrow whose distance from the centre the slider sets. */
   private readonly distIndex = signal<number | null>(null);
+  /** The distance slider is being dragged (its value is then shown large on the face). */
+  protected readonly sliding = signal(false);
+  /** An arrow was picked to be placed again, so a tap may move it even in a complete end. */
+  private readonly reselected = signal(false);
   protected readonly steps = CENTRE_STEPS;
   protected readonly distShot = computed(() => {
     const i = this.distIndex();
@@ -705,6 +738,7 @@ export class EndInputPage {
     const first = shots.findIndex((s) => s.ring === NOT_ENTERED);
     this.current.set(first < 0 ? 0 : first);
     this.distIndex.set(null);
+    this.reselected.set(false);
     const pref = await this.repo.getSetting<'plot' | 'keys'>('inputMode', 'plot');
     this.mode.set(
       this.existing &&
@@ -779,6 +813,8 @@ export class EndInputPage {
 
   protected down(e: PointerEvent) {
     if (this.pointerId !== null || (e.target as HTMLElement).closest('button')) return;
+    // A complete end is not changed by a stray tap; pick an arrow above to move it.
+    if (this.complete() && !this.reselected()) return;
     this.pointerId = e.pointerId;
     this.wrap = e.currentTarget as HTMLElement;
     this.lastPan = -Infinity;
@@ -914,6 +950,7 @@ export class EndInputPage {
         : null;
     this.shots.update((l) => l.map((s, j) => (j === i ? { ...s, ...p, cm } : s)));
     this.distIndex.set(cm === null ? null : i);
+    this.reselected.set(false);
     this.positioned.update((l) => l.map((v, j) => (j === i ? positioned : v)));
     if (navigator.vibrate) navigator.vibrate(8);
     if (this.firstHit() && pointsFor(this.model(), this.round()!.scoringStyle, p.ring, i) > 0) {
@@ -930,6 +967,7 @@ export class EndInputPage {
 
   protected pickShot(i: number) {
     this.current.set(i);
+    this.reselected.set(true);
     this.distIndex.set(i);
   }
 
