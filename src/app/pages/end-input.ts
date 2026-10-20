@@ -33,8 +33,8 @@ import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
 import { FaceShot, TargetFace } from '../ui/target-face';
 
-/** Half-width of the visible face when not zoomed (face radius 1 plus a small margin). */
-const BASE_VIEW = 1.04;
+/** Half-width of the visible face when not zoomed: face radius 1 plus room to plot misses. */
+const BASE_VIEW = 1.2;
 /** On touch the arrow is drawn this far above the fingertip so the finger doesn't hide it. */
 const TOUCH_OFFSET_PX = 56;
 /**
