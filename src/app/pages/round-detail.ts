@@ -9,7 +9,7 @@ import { formatDimension } from '../core/dimension';
 import { avg, pct } from '../core/format';
 import { End, NOT_ENTERED, Shot } from '../core/models';
 import { endLimit, targetNumber, usesTargetNumbers } from '../core/numbering';
-import { Repo } from '../core/repo.service';
+import { Repo, todayIso } from '../core/repo.service';
 import {
   contrastOn,
   faceLabel,
@@ -55,9 +55,15 @@ import { ImageThumb } from '../ui/image-thumb';
           </div>
           <div class="spacer"></div>
           @if (canAdd()) {
-            <a class="btn primary" [routerLink]="['/round', r.id, 'end', ends().length]"
-              ><app-icon name="add" /> End</a
-            >
+            @if (today()) {
+              <a class="btn primary" [routerLink]="['/round', r.id, 'end', ends().length]"
+                ><app-icon name="target" /> Continue shooting</a
+              >
+            } @else {
+              <a class="btn" [routerLink]="['/round', r.id, 'end', ends().length]"
+                ><app-icon name="add" /> End</a
+              >
+            }
           } @else if (nextRoundId(); as nr) {
             <a class="btn primary" [routerLink]="['/round', nr, 'end', 0]">Next round</a>
           }
@@ -166,6 +172,8 @@ export class RoundDetailPage {
     const limit = r ? endLimit(r) : null;
     return !!r && (!limit || this.ends().length < limit);
   });
+  /** Shooting goes on in today's sessions; older ones can still get an end added. */
+  protected readonly today = computed(() => this.b()?.session.date === todayIso());
   protected readonly nextRoundId = computed(() => {
     const b = this.b();
     const r = this.round();

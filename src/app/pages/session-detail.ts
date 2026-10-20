@@ -103,11 +103,6 @@ const WEATHER: Record<string, string> = {
           </ul>
         </div>
         <div class="row">
-          @if (nextInput(); as n) {
-            <a class="btn primary" [routerLink]="['/round', n.round, 'end', n.end]"
-              ><app-icon name="target" /> Continue shooting</a
-            >
-          }
           <a class="btn" [routerLink]="['/session', b.session.id, 'round', 'new']"
             ><app-icon name="add" /> Add round</a
           >
@@ -180,18 +175,6 @@ export class SessionDetailPage {
       !t.indoor && t.windSpeed ? `wind ${t.windSpeed} Bft` : '',
     ];
     return parts.filter(Boolean).join(' · ');
-  });
-
-  /** The first round that still has ends to shoot. */
-  protected readonly nextInput = computed(() => {
-    const b = this.b();
-    if (!b) return null;
-    for (const r of b.rounds) {
-      const n = b.ends.get(r.id!)?.length ?? 0;
-      const limit = endLimit(r);
-      if (!limit || n < limit) return { round: r.id, end: n };
-    }
-    return null;
   });
 
   protected face(r: Round) {
