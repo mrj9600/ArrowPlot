@@ -625,6 +625,31 @@ export const TARGETS: TargetModel[] = [
     styles: [style(null, false, [7, 5, 3])],
     diameters: cm(18),
   }),
+  // Ids from 100 are ArrowPlot's own (not in MyTargets), added for scoring kinds other apps use.
+  face({
+    id: 100,
+    name: '3D (10-8-5)',
+    kind: '3d',
+    zones: [circle(0.2, RED, INK, 0.05, 0.05), VITAL, BODY_ZONE],
+    styles: [
+      style(null, false, [10, 8, 5]),
+      // Two arrows, only the first hit counts (10/8/5, then 7/5/2).
+      animalStyle([
+        [10, 8, 5],
+        [7, 5, 2],
+      ]),
+    ],
+    diameters: SIZES_3D,
+  }),
+  face({
+    id: 101,
+    name: '3D (5-3, body -1)',
+    kind: '3d',
+    // A body hit or a miss costs a point; misses are entered as the body zone.
+    zones: [circle(0.2, RED, INK, 0.05, 0.05), VITAL, BODY_ZONE],
+    styles: [style(null, false, [5, 3, -1])],
+    diameters: SIZES_3D,
+  }),
 ];
 
 const BY_ID = new Map(TARGETS.map((t) => [t.id, t]));
@@ -632,7 +657,7 @@ const BY_ID = new Map(TARGETS.map((t) => [t.id, t]));
 /** Display order used in pickers: common faces first. */
 export const TARGET_PICKER_ORDER = [
   0, 1, 2, 3, 5, 4, 6, 26, 27, 13, 25, 10, 11, 7, 8, 9, 12, 14, 23, 24, 28, 15, 16, 17, 18, 19, 20,
-  21, 22,
+  21, 22, 100, 101,
 ];
 
 export function getTarget(id: number): TargetModel {

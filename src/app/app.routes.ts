@@ -39,14 +39,17 @@ export const routes: Routes = [
   { path: 'bow/:id', loadComponent: () => import('./pages/bow-form').then((m) => m.BowFormPage) },
   {
     path: 'standard-round/:id',
-    loadComponent: () =>
-      import('./pages/standard-round-form').then((m) => m.StandardRoundFormPage),
+    loadComponent: () => import('./pages/standard-round-form').then((m) => m.StandardRoundFormPage),
   },
   {
     path: 'arrow/:id',
     loadComponent: () => import('./pages/arrow-form').then((m) => m.ArrowFormPage),
   },
   { path: 'more', loadComponent: () => import('./pages/more').then((m) => m.MorePage) },
+  {
+    path: 'import/archdps',
+    loadComponent: () => import('./pages/import-archdps').then((m) => m.ImportArchDpsPage),
+  },
   {
     path: 'import/mytargets',
     loadComponent: () => import('./pages/import-mytargets').then((m) => m.ImportMyTargetsPage),

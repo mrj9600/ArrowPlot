@@ -99,7 +99,13 @@ export const BUILT_IN_ROUNDS: Omit<StandardRound, 'id'>[] = [
 /** One line per round, e.g. "18 m · WA full face 40cm · 10 × 3 arrows". */
 export function describeRound(r: RoundTemplate): string {
   const ends = r.endCount ? `${r.endCount} × ${r.shotsPerEnd}` : `open × ${r.shotsPerEnd}`;
-  return `${formatDimension(r.distance)} · ${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)} · ${ends} arrows`;
+  return [
+    formatDimension(r.distance),
+    `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`,
+    `${ends} arrows`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** Total arrows in a round definition, or null when a round has no fixed end count. */
@@ -122,5 +128,11 @@ export function summarizeRound(s: StandardRound): string {
 
 /** A round without its end count, e.g. "18 m · WA full face 40cm · 3 arrows per end". */
 export function describeRoundSetup(r: RoundTemplate): string {
-  return `${formatDimension(r.distance)} · ${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)} · ${r.shotsPerEnd} arrows per end`;
+  return [
+    formatDimension(r.distance),
+    `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`,
+    `${r.shotsPerEnd} arrows per end`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }

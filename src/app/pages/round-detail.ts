@@ -22,7 +22,7 @@ import { ImageThumb } from '../ui/image-thumb';
   template: `
     @if (round(); as r) {
       <app-bar
-        [title]="'Round ' + (r.index + 1) + ' · ' + fmtDim(r.distance)"
+        [title]="'Round ' + (r.index + 1) + (fmtDim(r.distance) ? ' · ' + fmtDim(r.distance) : '')"
         [subtitle]="faceName()"
         [back]="'/training/' + r.trainingId"
       >

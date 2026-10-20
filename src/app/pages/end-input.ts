@@ -356,7 +356,13 @@ export class EndInputPage {
   protected readonly subtitle = computed(() => {
     const r = this.round();
     if (!r) return '';
-    return `Round ${r.index + 1} · ${formatDimension(r.distance)} · ${this.model().name} ${formatDimension(r.targetDiameter)}`;
+    return [
+      `Round ${r.index + 1}`,
+      formatDimension(r.distance),
+      `${this.model().name} ${formatDimension(r.targetDiameter)}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
   });
   protected readonly endScore = computed(() => {
     const r = this.round();

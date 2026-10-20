@@ -26,6 +26,9 @@ Live: **https://mrj9600.github.io/ArrowPlot/**
 - **Shooting timer** with walk-up, warning and beeps; keeps the screen awake.
 - **Import MyTargets backups** (`MyTargets_backup_*.zip` or a bare `data.db`): trainings, rounds, ends, shots,
   bows, sight marks, arrows, standard rounds and photos. Re-importing a newer backup only adds new trainings.
+- **Import 3D SKill Board backups** (the 3DTurnier app, `archDPS_*.zip`): your 3D, field and 10-ring
+  sessions with their scoring, plus arrow positions on the 10-ring face. Each session's total is checked
+  against the app's own.
 - **Import MantisX** shot exports (CSV): each session becomes a training, or gives arrow positions to a
   training entered as scores only on the same day with the same scores. Option to keep MantisX's score for
   arrows on a line.
@@ -53,7 +56,7 @@ Code map:
 
 - `src/app/core/targets.ts`: target faces and scoring
 - `src/app/core/stats.ts`: group analysis
-- `src/app/core/import/`: MyTargets (sql.js), MantisX (CSV) and ArrowPlot backup formats
+- `src/app/core/import/`: MyTargets and 3D SKill Board (sql.js), MantisX (CSV) and ArrowPlot backup formats
 - `src/app/pages/`: one standalone component per screen; `src/app/ui/`: shared components
 
 ## Deployment

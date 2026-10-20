@@ -213,7 +213,12 @@ export class StatsPage {
       const key = this.faceKeyOf(r);
       const e = seen.get(key) ?? {
         key,
-        label: `${formatDimension(r.distance)} · ${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`,
+        label: [
+          formatDimension(r.distance),
+          `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
         n: 0,
       };
       e.n++;

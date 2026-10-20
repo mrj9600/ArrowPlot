@@ -76,7 +76,7 @@ export interface Training {
   location: string;
   comment: string;
   /** Where the training came from: entered here, a MyTargets backup or a MantisX export. */
-  source: 'manual' | 'mytargets' | 'mantisx';
+  source: 'manual' | 'mytargets' | 'mantisx' | 'archdps';
   /** Stable reference into the source ("mt:<file>:<id>", "mantis:<session id>") to detect re-imports. */
   sourceRef?: string;
   /** Cached totals, kept up to date by the repository. */

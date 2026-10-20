@@ -123,7 +123,7 @@ export class TrainingsPage {
     for (const r of rounds) {
       const l = dists.get(r.trainingId) ?? [];
       const d = formatDimension(r.distance);
-      if (!l.includes(d)) l.push(d);
+      if (d && !l.includes(d)) l.push(d);
       dists.set(r.trainingId, l);
     }
     const out: { month: string; rows: Row[] }[] = [];
@@ -135,7 +135,7 @@ export class TrainingsPage {
         t.bowId ? bowName.get(t.bowId) : '',
         (dists.get(t.id!) ?? []).join(', '),
         `${t.score.shots} arrows`,
-        t.source === 'mantisx' ? 'MantisX' : '',
+        t.source === 'mantisx' ? 'MantisX' : t.source === 'archdps' ? '3D SKill Board' : '',
       ].filter(Boolean);
       out.at(-1)!.rows.push({
         t,

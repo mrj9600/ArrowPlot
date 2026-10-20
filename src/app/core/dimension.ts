@@ -35,7 +35,8 @@ export function parseDimension(s: string | null | undefined): Dimension {
 
 export function formatDimension(d: Dimension | null | undefined): string {
   if (!d) return '';
-  if (d.value === -1) return 'Unknown';
+  // -1 means not recorded (e.g. imported sessions without a distance): show nothing.
+  if (d.value === -1) return '';
   if (d.unit === null) return SIZE_NAMES[Math.round(d.value)] ?? '';
   const v = Math.round(d.value * 10) / 10;
   return `${v}${d.unit === 'm' || d.unit === 'yd' ? ' ' : ''}${d.unit}`;

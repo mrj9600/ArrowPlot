@@ -63,7 +63,7 @@ const WEATHER: Record<string, string> = {
             }
             @if (b.training.source !== 'manual') {
               <dt>Source</dt>
-              <dd>{{ b.training.source === 'mytargets' ? 'MyTargets backup' : 'MantisX' }}</dd>
+              <dd>{{ sourceName[b.training.source] }}</dd>
             }
           </dl>
         </div>
@@ -83,7 +83,10 @@ const WEATHER: Record<string, string> = {
                     [scoringStyle]="r.scoringStyle"
                   />
                   <div class="main">
-                    <div class="title">Round {{ r.index + 1 }} · {{ fmtDim(r.distance) }}</div>
+                    <div class="title">
+                      Round {{ r.index + 1
+                      }}{{ fmtDim(r.distance) ? ' · ' + fmtDim(r.distance) : '' }}
+                    </div>
                     <div class="sub">{{ face(r) }} · {{ endsText(r) }}</div>
                   </div>
                   <div class="end num">
@@ -148,6 +151,11 @@ export class TrainingDetailPage {
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
   protected readonly fmtDate = fmtDate;
+  protected readonly sourceName: Record<string, string> = {
+    mytargets: 'MyTargets backup',
+    mantisx: 'MantisX',
+    archdps: '3D SKill Board (archDPS)',
+  };
   protected readonly pct = pct;
   protected readonly avg = avg;
   protected readonly fmtDim = formatDimension;

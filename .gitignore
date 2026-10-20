@@ -45,3 +45,4 @@ Thumbs.db
 
 # Local tooling
 /.claude/
+/public/tmp-fixtures/

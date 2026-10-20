@@ -46,6 +46,16 @@ import { APP_VERSION } from '../version';
               <app-icon name="chevron" class="muted"
             /></a>
           </li>
+          <li>
+            <a class="item" routerLink="/import/archdps"
+              ><app-icon name="upload" />
+              <div class="main">
+                <div class="title">3D SKill Board backup</div>
+                <div class="sub">3D, field and target sessions from an archDPS .zip</div>
+              </div>
+              <app-icon name="chevron" class="muted"
+            /></a>
+          </li>
         </ul>
       </div>
 
