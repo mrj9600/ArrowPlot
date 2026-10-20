@@ -1,4 +1,5 @@
-import { dim } from './dimension';
+import { dim, formatDimension } from './dimension';
+import { getTarget } from './targets';
 import { LengthUnit, RoundTemplate, StandardRound } from './models';
 
 const r = (
@@ -94,3 +95,27 @@ export const BUILT_IN_ROUNDS: Omit<StandardRound, 'id'>[] = [
   { name: 'Portsmouth', club: 'Archery GB', rounds: [r(20, 'yd', 0, 60, 3, 20)] },
   { name: 'Worcester', club: 'NFAA', rounds: [r(20, 'yd', 12, 40.64, 5, 12)] },
 ].map((s) => ({ ...s, builtIn: true }));
+
+/** One line per round, e.g. "18 m · WA full face 40cm · 10 × 3 arrows". */
+export function describeRound(r: RoundTemplate): string {
+  const ends = r.endCount ? `${r.endCount} × ${r.shotsPerEnd}` : `open × ${r.shotsPerEnd}`;
+  return `${formatDimension(r.distance)} · ${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)} · ${ends} arrows`;
+}
+
+/** Total arrows in a round definition, or null when a round has no fixed end count. */
+export function arrowCount(s: StandardRound): number | null {
+  return s.rounds.every((r) => r.endCount)
+    ? s.rounds.reduce((a, r) => a + r.endCount * r.shotsPerEnd, 0)
+    : null;
+}
+
+/** One line for a whole round definition, e.g. "70 m / 60 m · WA full face 122cm · 72 arrows". */
+export function summarizeRound(s: StandardRound): string {
+  const uniq = (l: string[]) => [...new Set(l)];
+  const dists = uniq(s.rounds.map((r) => formatDimension(r.distance))).join(' / ');
+  const faces = uniq(
+    s.rounds.map((r) => `${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)}`),
+  ).join(' / ');
+  const n = arrowCount(s);
+  return `${dists} · ${faces} · ${n ? `${n} arrows` : 'open-ended'}`;
+}

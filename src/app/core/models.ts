@@ -65,6 +65,8 @@ export interface Training {
   arrowId?: number | null;
   standardRoundId?: number | null;
   arrowNumbering: boolean;
+  /** Arrow numbers offered when numbering; null/absent = all of the arrow set's numbers. */
+  arrowNumbers?: string[] | null;
   indoor: boolean;
   weather?: Weather | null;
   /** Beaufort 0-12. */

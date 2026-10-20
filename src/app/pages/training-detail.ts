@@ -57,8 +57,10 @@ const WEATHER: Record<string, string> = {
               <dt>Arrows</dt>
               <dd>{{ b.arrow.name }} ({{ fmtDim(b.arrow.diameter) }})</dd>
             }
-            <dt>Where</dt>
-            <dd>{{ conditions() }}</dd>
+            @if (conditions()) {
+              <dt>Where</dt>
+              <dd>{{ conditions() }}</dd>
+            }
             @if (b.training.source !== 'manual') {
               <dt>Source</dt>
               <dd>{{ b.training.source === 'mytargets' ? 'MyTargets backup' : 'MantisX' }}</dd>
@@ -160,11 +162,11 @@ export class TrainingDetailPage {
   protected readonly conditions = computed(() => {
     const t = this.b()?.training;
     if (!t) return '';
+    // Weather and wind only exist on trainings imported from MyTargets.
     const parts = [
-      t.indoor ? 'Indoor' : 'Outdoor',
+      t.location,
       !t.indoor && t.weather ? WEATHER[t.weather] : '',
       !t.indoor && t.windSpeed ? `wind ${t.windSpeed} Bft` : '',
-      t.location,
     ];
     return parts.filter(Boolean).join(' · ');
   });

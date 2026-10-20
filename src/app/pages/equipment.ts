@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { formatDimension } from '../core/dimension';
-import { Arrow, Bow } from '../core/models';
+import { Arrow, Bow, StandardRound } from '../core/models';
+import { summarizeRound } from '../core/standard-rounds';
 import { live, Repo } from '../core/repo.service';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
@@ -81,6 +82,29 @@ export const BOW_TYPE_LABEL: Record<string, string> = {
           }
         </ul>
       </div>
+      <div class="row">
+        <div class="section-title">Rounds</div>
+        <div class="spacer"></div>
+        <a class="btn sm" routerLink="/standard-round/new"><app-icon name="add" /> Round</a>
+      </div>
+      <div class="card flush">
+        <ul class="list">
+          @for (s of rounds(); track s.id) {
+            <li>
+              <a class="item" [routerLink]="['/standard-round', s.id]">
+                <app-icon name="target" class="muted" />
+                <div class="main">
+                  <div class="title">{{ s.name }}</div>
+                  <div class="sub">{{ summary(s) }}</div>
+                </div>
+                <app-icon name="chevron" class="muted" />
+              </a>
+            </li>
+          } @empty {
+            <li class="item muted">No rounds yet. Add the rounds you shoot.</li>
+          }
+        </ul>
+      </div>
     </div>
   `,
   styles: `
@@ -98,4 +122,6 @@ export class EquipmentPage {
   protected readonly fmt = formatDimension;
   protected readonly bows = live(() => this.repo.bows(), [] as Bow[]);
   protected readonly arrows = live(() => this.repo.arrows(), [] as Arrow[]);
+  protected readonly rounds = live(() => this.repo.standardRounds(), [] as StandardRound[]);
+  protected readonly summary = summarizeRound;
 }

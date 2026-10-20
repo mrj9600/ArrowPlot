@@ -227,16 +227,19 @@ export class Repo {
   // ---------- standard rounds ----------
 
   standardRounds(): Promise<StandardRound[]> {
-    return db.standardRounds
-      .toArray()
-      .then((l) =>
-        l.sort(
-          (a, b) =>
-            Number(b.builtIn) - Number(a.builtIn) ||
-            a.club.localeCompare(b.club) ||
-            a.name.localeCompare(b.name),
-        ),
-      );
+    return db.standardRounds.toArray().then((l) => l.sort((a, b) => a.name.localeCompare(b.name)));
+  }
+
+  async saveStandardRound(s: StandardRound): Promise<number> {
+    return db.standardRounds.put(s);
+  }
+
+  /** Deletes a round definition; trainings shot with it keep their rounds. */
+  async deleteStandardRound(id: number): Promise<void> {
+    await db.transaction('rw', db.standardRounds, db.trainings, async () => {
+      await db.trainings.filter((t) => t.standardRoundId === id).modify({ standardRoundId: null });
+      await db.standardRounds.delete(id);
+    });
   }
 
   // ---------- settings ----------

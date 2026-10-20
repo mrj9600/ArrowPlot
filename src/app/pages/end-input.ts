@@ -147,7 +147,14 @@ interface Placed {
 
         @if (training()?.arrowNumbering && shots()[current()]?.ring !== -2) {
           <div class="numbers">
-            <span class="small muted">Arrow no. for arrow {{ current() + 1 }}:</span>
+            <div class="row">
+              <span class="small muted" style="flex:1"
+                >Arrow no. for arrow {{ current() + 1 }}:</span
+              >
+              <button class="btn sm ghost" type="button" (click)="stopNumbering()">
+                Stop numbering
+              </button>
+            </div>
             <div class="chips">
               @for (n of arrowNumbers(); track n) {
                 <button
@@ -367,10 +374,13 @@ export class EndInputPage {
     () => this.shots().length > 0 && this.shots().every((s) => s.ring !== NOT_ENTERED),
   );
   protected readonly anyEntered = computed(() => this.shots().some((s) => s.ring !== NOT_ENTERED));
-  protected readonly arrowNumbers = computed(() =>
-    Array.from({ length: Math.max(1, this.arrow()?.maxArrowNumber ?? 12) }, (_, i) =>
-      String(i + 1),
-    ),
+  /** The numbers chosen for this training, or 1 … N for the arrow set (at least 13). */
+  protected readonly arrowNumbers = computed(
+    () =>
+      this.training()?.arrowNumbers ??
+      Array.from({ length: Math.max(13, this.arrow()?.maxArrowNumber ?? 0) }, (_, i) =>
+        String(i + 1),
+      ),
   );
 
   protected readonly faceShots = computed<FaceShot[]>(() => {
@@ -641,6 +651,15 @@ export class EndInputPage {
     const any = this.shots().findIndex((s) => s.ring === NOT_ENTERED);
     if (next >= 0) this.current.set(next);
     else if (any >= 0) this.current.set(any);
+  }
+
+  /** Turns arrow numbering off for the rest of this training. */
+  protected async stopNumbering() {
+    const t = this.training();
+    if (!t) return;
+    await db.trainings.update(t.id!, { arrowNumbering: false });
+    this.training.set({ ...t, arrowNumbering: false });
+    if (this.shots()[this.current()].ring !== NOT_ENTERED) this.advance();
   }
 
   protected setNumber(n: string) {

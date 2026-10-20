@@ -38,6 +38,11 @@ export const routes: Routes = [
   },
   { path: 'bow/:id', loadComponent: () => import('./pages/bow-form').then((m) => m.BowFormPage) },
   {
+    path: 'standard-round/:id',
+    loadComponent: () =>
+      import('./pages/standard-round-form').then((m) => m.StandardRoundFormPage),
+  },
+  {
     path: 'arrow/:id',
     loadComponent: () => import('./pages/arrow-form').then((m) => m.ArrowFormPage),
   },

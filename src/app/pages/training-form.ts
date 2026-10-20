@@ -1,6 +1,5 @@
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   computed,
   effect,
@@ -8,87 +7,95 @@ import {
   input,
   signal,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { db } from '../core/db';
-import { dim, formatDimension } from '../core/dimension';
-import {
-  Arrow,
-  Bow,
-  RoundTemplate,
-  StandardRound,
-  Training,
-  Weather,
-  WEATHER,
-} from '../core/models';
+import { Arrow, Bow, StandardRound, Training } from '../core/models';
 import { Repo, todayIso } from '../core/repo.service';
-import { getTarget } from '../core/targets';
+import { describeRound } from '../core/standard-rounds';
 import { AppBar } from '../ui/app-bar';
-import { RoundSettings } from '../ui/round-settings';
 
-const DEFAULT_ROUND: RoundTemplate = {
-  distance: dim(18, 'm'),
-  targetId: 0,
-  scoringStyle: 0,
-  targetDiameter: dim(40, 'cm'),
-  shotsPerEnd: 3,
-  endCount: 10,
-};
+/** Arrow numbers offered when no arrow set says otherwise. */
+const DEFAULT_ARROW_COUNT = 13;
 
-const WEATHER_LABEL: Record<Weather, string> = {
-  sunny: 'Sunny',
-  partlyCloudy: 'Partly cloudy',
-  cloudy: 'Cloudy',
-  lightRain: 'Light rain',
-  rain: 'Rain',
-};
+interface LastTraining {
+  bowId?: number;
+  arrowId?: number;
+  standardId?: number;
+  arrowNumbers?: string[];
+}
 
 @Component({
   selector: 'app-training-form',
-  imports: [AppBar, FormsModule, RoundSettings, RouterLink],
+  imports: [AppBar, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar
       [title]="id() ? 'Edit training' : 'New training'"
       [back]="id() ? '/training/' + id() : '/'"
     />
-    <form class="page" (ngSubmit)="save()">
+    <form class="page" (submit)="$event.preventDefault(); save()">
       <div class="card" style="display:grid;gap:12px">
-        <label class="field"
-          ><span>Title</span>
-          <input class="input" name="title" [(ngModel)]="title" placeholder="Training" />
-        </label>
-        <div class="grid2">
+        <div class="grid2 stack">
+          <label class="field"
+            ><span>Title</span>
+            <input
+              class="input"
+              [value]="title()"
+              (input)="title.set($any($event.target).value)"
+              [placeholder]="selectedRound()?.name ?? 'Training'"
+            />
+          </label>
           <label class="field"
             ><span>Date</span>
-            <input class="input" type="date" name="date" [(ngModel)]="date" required />
+            <input
+              class="input"
+              type="date"
+              [value]="date()"
+              (input)="date.set($any($event.target).value)"
+            />
           </label>
-          <div class="field">
-            <span>Where</span>
-            <div class="seg">
-              <button type="button" [class.on]="indoor()" (click)="indoor.set(true)">Indoor</button>
-              <button type="button" [class.on]="!indoor()" (click)="indoor.set(false)">
-                Outdoor
-              </button>
-            </div>
-          </div>
         </div>
+
+        @if (!id()) {
+          <label class="field"
+            ><span>Round</span>
+            <select class="input" (change)="roundId.set(+$any($event.target).value || null)">
+              @for (s of rounds(); track s.id) {
+                <option [value]="s.id" [selected]="s.id === roundId()">{{ s.name }}</option>
+              }
+            </select>
+          </label>
+          @if (selectedRound(); as s) {
+            <ul class="small muted" style="margin:-4px 0 0;padding-left:18px">
+              @for (r of s.rounds; track $index) {
+                <li>{{ describe(r) }}</li>
+              }
+            </ul>
+          } @else if (loaded()) {
+            <p class="notice small" style="margin:0">
+              You have no rounds yet.
+              <a routerLink="/standard-round/new">Create a round</a> first.
+            </p>
+          }
+          <a class="small" routerLink="/equipment">Manage rounds</a>
+        }
+
         <div class="grid2 stack">
           <label class="field"
             ><span>Bow</span>
-            <select class="input" name="bow" [(ngModel)]="bowId">
-              <option [ngValue]="null">No bow</option>
+            <select class="input" (change)="bowId.set(+$any($event.target).value || null)">
+              <option value="" [selected]="!bowId()">No bow</option>
               @for (b of bows(); track b.id) {
-                <option [ngValue]="b.id">{{ b.name }}</option>
+                <option [value]="b.id" [selected]="b.id === bowId()">{{ b.name }}</option>
               }
             </select>
           </label>
           <label class="field"
             ><span>Arrows</span>
-            <select class="input" name="arrow" [(ngModel)]="arrowId">
-              <option [ngValue]="null">No arrows</option>
+            <select class="input" (change)="arrowId.set(+$any($event.target).value || null)">
+              <option value="" [selected]="!arrowId()">No arrows</option>
               @for (a of arrows(); track a.id) {
-                <option [ngValue]="a.id">{{ a.name }}</option>
+                <option [value]="a.id" [selected]="a.id === arrowId()">{{ a.name }}</option>
               }
             </select>
           </label>
@@ -99,118 +106,111 @@ const WEATHER_LABEL: Record<Weather, string> = {
             per training. The arrow diameter makes line-cutter scoring exact.
           </p>
         }
-        @if (!indoor()) {
-          <div class="grid2">
-            <label class="field"
-              ><span>Weather</span>
-              <select class="input" name="weather" [(ngModel)]="weather">
-                <option [ngValue]="null">–</option>
-                @for (w of weathers; track w) {
-                  <option [ngValue]="w">{{ weatherLabel[w] }}</option>
-                }
-              </select>
-            </label>
-            <label class="field"
-              ><span>Wind (Beaufort)</span>
-              <input
-                class="input"
-                type="number"
-                min="0"
-                max="12"
-                name="wind"
-                [(ngModel)]="windSpeed"
-              />
-            </label>
+
+        <label class="check"
+          ><input
+            type="checkbox"
+            [checked]="numbering()"
+            (change)="numbering.set($any($event.target).checked)"
+          />
+          Number my arrows</label
+        >
+        @if (numbering()) {
+          <div class="numbers">
+            <div class="row">
+              <span class="small muted" style="flex:1"
+                >Arrows to choose from ({{ chosen().size }} selected)</span
+              >
+              <button class="btn sm ghost" type="button" (click)="selectAll()">All</button>
+              <button class="btn sm ghost" type="button" (click)="selectNone()">None</button>
+            </div>
+            <div class="chips">
+              @for (n of pool(); track n) {
+                <button
+                  type="button"
+                  class="chip num"
+                  [class.on]="chosen().has(n)"
+                  (click)="toggle(n)"
+                  [attr.aria-pressed]="chosen().has(n)"
+                >
+                  {{ n }}
+                </button>
+              }
+            </div>
           </div>
         }
+
         <label class="field"
           ><span>Location</span>
-          <input class="input" name="location" [(ngModel)]="location" />
+          <input
+            class="input"
+            [value]="location()"
+            (input)="location.set($any($event.target).value)"
+          />
         </label>
-        <label class="check"
-          ><input type="checkbox" name="numbering" [(ngModel)]="arrowNumbering" /> Number my
-          arrows</label
-        >
         <label class="field"
           ><span>Notes</span>
-          <textarea class="input" name="comment" [(ngModel)]="comment"></textarea>
+          <textarea
+            class="input"
+            [value]="comment()"
+            (input)="comment.set($any($event.target).value)"
+          ></textarea>
         </label>
       </div>
-
-      @if (!id()) {
-        <div class="card" style="display:grid;gap:12px">
-          <div class="seg" style="justify-self:start">
-            <button type="button" [class.on]="mode() === 'practice'" (click)="mode.set('practice')">
-              Practice
-            </button>
-            <button type="button" [class.on]="mode() === 'standard'" (click)="mode.set('standard')">
-              Standard round
-            </button>
-          </div>
-          @if (mode() === 'practice') {
-            <app-round-settings [(value)]="practice" />
-          } @else {
-            <label class="field"
-              ><span>Round</span>
-              <select
-                class="input"
-                name="sr"
-                [(ngModel)]="standardId"
-                (ngModelChange)="standardSignal.set($event)"
-              >
-                @for (s of standardRounds(); track s.id) {
-                  <option [ngValue]="s.id">{{ s.club }} · {{ s.name }}</option>
-                }
-              </select>
-            </label>
-            @if (selectedStandard(); as s) {
-              <ul class="small muted" style="margin:0;padding-left:18px">
-                @for (r of s.rounds; track $index) {
-                  <li>{{ describe(r) }}</li>
-                }
-              </ul>
-            }
-          }
-        </div>
-      }
-      <button class="btn primary block" type="submit" [disabled]="busy()">
+      <button
+        class="btn primary block"
+        type="submit"
+        [disabled]="busy() || (!id() && !selectedRound())"
+      >
         {{ id() ? 'Save' : 'Start training' }}
       </button>
     </form>
+  `,
+  styles: `
+    .numbers {
+      display: grid;
+      gap: 6px;
+      margin-top: -6px;
+    }
+    .chip.num {
+      min-width: 40px;
+      padding: 6px 0;
+      text-align: center;
+    }
   `,
 })
 export class TrainingFormPage {
   readonly id = input<string>();
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
-  private readonly cdr = inject(ChangeDetectorRef);
+  protected readonly describe = describeRound;
 
-  protected readonly weathers = WEATHER;
-  protected readonly weatherLabel = WEATHER_LABEL;
   protected readonly bows = signal<Bow[]>([]);
   protected readonly arrows = signal<Arrow[]>([]);
-  protected readonly standardRounds = signal<StandardRound[]>([]);
+  protected readonly rounds = signal<StandardRound[]>([]);
+  protected readonly loaded = signal(false);
   protected readonly busy = signal(false);
-  protected readonly mode = signal<'practice' | 'standard'>('practice');
-  protected readonly indoor = signal(true);
-  protected readonly practice = signal<RoundTemplate>(DEFAULT_ROUND);
 
-  protected title = '';
-  protected date = todayIso();
-  protected bowId: number | null = null;
-  protected arrowId: number | null = null;
-  protected weather: Weather | null = null;
-  protected windSpeed = 0;
-  protected location = '';
-  protected comment = '';
-  protected arrowNumbering = false;
-  protected standardId: number | null = null;
+  protected readonly title = signal('');
+  protected readonly date = signal(todayIso());
+  protected readonly roundId = signal<number | null>(null);
+  protected readonly bowId = signal<number | null>(null);
+  protected readonly arrowId = signal<number | null>(null);
+  protected readonly location = signal('');
+  protected readonly comment = signal('');
+  protected readonly numbering = signal(false);
+  protected readonly chosen = signal(new Set<string>());
   private existing: Training | null = null;
-  protected readonly standardSignal = signal<number | null>(null);
 
-  protected readonly selectedStandard = computed(
-    () => this.standardRounds().find((s) => s.id === this.standardSignal()) ?? null,
+  protected readonly selectedRound = computed(
+    () => this.rounds().find((s) => s.id === this.roundId()) ?? null,
   );
+  /** 1 … N, where N is the arrow set's size (at least 13). */
+  protected readonly pool = computed(() => {
+    const set = this.arrows().find((a) => a.id === this.arrowId());
+    const n = Math.max(DEFAULT_ARROW_COUNT, set?.maxArrowNumber ?? 0);
+    return Array.from({ length: n }, (_, i) => String(i + 1));
+  });
 
   constructor() {
     effect(() => {
@@ -220,101 +220,102 @@ export class TrainingFormPage {
   }
 
   private async load(id: number | null) {
-    const [bows, arrows, srs] = await Promise.all([
+    const [bows, arrows, rounds] = await Promise.all([
       this.repo.bows(),
       this.repo.arrows(),
       this.repo.standardRounds(),
     ]);
     this.bows.set(bows);
     this.arrows.set(arrows);
-    this.standardRounds.set(srs);
+    this.rounds.set(rounds);
     if (id) {
       const t = await db.trainings.get(id);
       if (!t) return;
       this.existing = t;
-      Object.assign(this, {
-        title: t.title,
-        date: t.date,
-        bowId: t.bowId ?? null,
-        arrowId: t.arrowId ?? null,
-        weather: t.weather ?? null,
-        windSpeed: t.windSpeed ?? 0,
-        location: t.location,
-        comment: t.comment,
-        arrowNumbering: t.arrowNumbering,
-      });
-      this.indoor.set(t.indoor);
+      this.title.set(t.title);
+      this.date.set(t.date);
+      this.bowId.set(t.bowId ?? null);
+      this.arrowId.set(t.arrowId ?? null);
+      this.location.set(t.location);
+      this.comment.set(t.comment);
+      this.numbering.set(t.arrowNumbering);
+      this.chosen.set(new Set(t.arrowNumbers ?? this.pool()));
     } else {
-      const last = await this.repo.getSetting<
-        Partial<{
-          round: RoundTemplate;
-          bowId: number;
-          arrowId: number;
-          indoor: boolean;
-          standardId: number;
-          mode: 'practice' | 'standard';
-        }>
-      >('lastTraining', {});
-      if (last.round) this.practice.set(last.round);
-      if (last.bowId && bows.some((b) => b.id === last.bowId)) this.bowId = last.bowId;
-      else if (bows.length === 1) this.bowId = bows[0].id!;
-      if (last.arrowId && arrows.some((a) => a.id === last.arrowId)) this.arrowId = last.arrowId;
-      else if (arrows.length === 1) this.arrowId = arrows[0].id!;
-      if (last.indoor !== undefined) this.indoor.set(last.indoor);
-      if (last.mode) this.mode.set(last.mode);
-      this.standardId = srs.find((s) => s.id === last.standardId)?.id ?? srs[0]?.id ?? null;
+      const last = await this.repo.getSetting<LastTraining>('lastTraining', {});
+      const has = <T extends { id?: number }>(l: T[], id?: number) => l.some((x) => x.id === id);
+      this.bowId.set(has(bows, last.bowId) ? last.bowId! : bows.length === 1 ? bows[0].id! : null);
+      this.arrowId.set(
+        has(arrows, last.arrowId) ? last.arrowId! : arrows.length === 1 ? arrows[0].id! : null,
+      );
+      this.roundId.set(has(rounds, last.standardId) ? last.standardId! : (rounds[0]?.id ?? null));
+      this.chosen.set(new Set(last.arrowNumbers ?? this.pool()));
     }
-    this.standardSignal.set(this.standardId);
-    this.cdr.markForCheck();
+    this.loaded.set(true);
   }
 
-  protected describe(r: RoundTemplate) {
-    const t = getTarget(r.targetId);
-    return `${formatDimension(r.distance)} · ${t.name} ${formatDimension(r.targetDiameter)} · ${r.endCount} × ${r.shotsPerEnd} arrows`;
+  protected toggle(n: string) {
+    this.chosen.update((s) => {
+      const next = new Set(s);
+      if (!next.delete(n)) next.add(n);
+      return next;
+    });
+  }
+  protected selectAll() {
+    this.chosen.set(new Set(this.pool()));
+  }
+  protected selectNone() {
+    this.chosen.set(new Set());
+  }
+
+  /** Selected numbers in order, or null when every number is selected. */
+  private arrowNumbers(): string[] | null {
+    const list = this.pool().filter((n) => this.chosen().has(n));
+    return list.length === this.pool().length ? null : list;
   }
 
   protected async save() {
     if (this.busy()) return;
     this.busy.set(true);
     try {
+      const numbers = this.arrowNumbers();
       const base = {
-        title: this.title.trim() || 'Training',
-        date: this.date || todayIso(),
-        bowId: this.bowId,
-        arrowId: this.arrowId,
-        indoor: this.indoor(),
-        weather: this.indoor() ? null : this.weather,
-        windSpeed: this.indoor() ? 0 : +this.windSpeed || 0,
-        windDirection: this.existing?.windDirection ?? 0,
-        location: this.location.trim(),
-        comment: this.comment.trim(),
-        arrowNumbering: this.arrowNumbering,
+        title: this.title().trim(),
+        date: this.date() || todayIso(),
+        bowId: this.bowId(),
+        arrowId: this.arrowId(),
+        location: this.location().trim(),
+        comment: this.comment().trim(),
+        arrowNumbering: this.numbering() && (numbers === null || numbers.length > 0),
+        arrowNumbers: numbers,
       };
       if (this.existing) {
-        await this.repo.updateTraining({ ...this.existing, ...base });
+        await this.repo.updateTraining({
+          ...this.existing,
+          ...base,
+          title: base.title || this.existing.title,
+        });
         this.router.navigate(['/training', this.existing.id], { replaceUrl: true });
         return;
       }
-      const sr = this.mode() === 'standard' ? this.selectedStandard() : null;
-      const rounds = sr ? sr.rounds : [this.practice()];
-      if (!rounds.length) return;
+      const sr = this.selectedRound();
+      if (!sr?.rounds.length) return;
       const id = await this.repo.createTraining(
         {
           ...base,
-          title: this.title.trim() || (sr ? sr.name : 'Training'),
-          standardRoundId: sr?.id ?? null,
+          title: base.title || sr.name,
+          standardRoundId: sr.id ?? null,
+          indoor: true,
+          weather: null,
           source: 'manual',
         },
-        rounds,
+        sr.rounds,
       );
       await this.repo.setSetting('lastTraining', {
-        round: this.practice(),
-        bowId: this.bowId,
-        arrowId: this.arrowId,
-        indoor: this.indoor(),
-        standardId: this.standardId,
-        mode: this.mode(),
-      });
+        bowId: this.bowId() ?? undefined,
+        arrowId: this.arrowId() ?? undefined,
+        standardId: sr.id,
+        arrowNumbers: numbers ?? undefined,
+      } satisfies LastTraining);
       const [first] = await this.repo.roundsOf(id);
       await this.router.navigate(['/training', id], { replaceUrl: true });
       this.router.navigate(['/round', first.id, 'end', 0]);

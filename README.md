@@ -10,10 +10,11 @@ Live: **https://mrj9600.github.io/ArrowPlot/**
 
 ## Features
 
-- **Trainings** with practice rounds or standard rounds (WA 18 m, 70 m, 1440, field, Vegas, …), bow, arrows,
-  indoor/outdoor, weather, notes.
+- **Your own rounds**: define rounds (one or more distances, face, scoring, ends) under Equipment, with a
+  starter set (WA 18 m, 70 m, 1440, field, Vegas, …) you can edit or delete.
+- **Trainings**: pick one of your rounds, bow and arrows; optional arrow numbering with the numbers you choose.
 - **End input** by plotting arrows on the face (the point sits above your finger, with a live ring readout
-  and zoom) or with ring buttons. Multi-spot faces follow the arrow order. Optional arrow numbering.
+  and zoom) or with ring buttons. Multi-spot faces follow the arrow order. Arrow numbering can be switched off mid-session.
 - **Target faces** for WA full / 6 / 5 / 3 ring, vertical and Vegas 3-spot, Danage, WA and NFAA field,
   NFAA indoor, Worcester, 3D and animal rounds, with their scoring styles. Ring sizes are worked out from the
   face specifications; an arrow touching a line scores the higher ring. 3D and animal faces are drawn as
