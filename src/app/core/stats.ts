@@ -7,6 +7,7 @@ import { End, NOT_ENTERED, Round } from './models';
 import {
   faceRadiusCm,
   getTarget,
+  isFirstHitStyle,
   maxPointsPerShot,
   pointsFor,
   relativeArrowRadius,
@@ -32,6 +33,10 @@ export interface PlotShot {
   distanceM: number | null;
   sessionId: number;
   roundId: number;
+  /** Identifies the end (target) the arrow belongs to. */
+  endKey: string;
+  /** Only the first hit of the end counts (animal rounds). */
+  firstHit: boolean;
 }
 
 export interface Ellipse {
@@ -45,7 +50,10 @@ export interface Analysis {
   nPos: number;
   reached: number;
   total: number;
+  /** Average per arrow, or per target when perEnd. */
   avg: number;
+  /** All arrows come from rounds where only the first hit counts: averages are per target. */
+  perEnd: boolean;
   /** Count per ring label, ordered best first. */
   rings: { label: string; count: number; points: number }[];
   best: { p: number; k: number; avg: number; pct: number }[];
@@ -76,6 +84,7 @@ export function plotShots(
   const rcm = faceRadiusCm(t, round.targetDiameter);
   const arrowR = relativeArrowRadius(t, round.targetDiameter, sessionArrowDiameter);
   const distanceM = round.distance.unit ? convert(round.distance, 'm') : null;
+  const firstHit = isFirstHitStyle(t, round.scoringStyle);
   const out: PlotShot[] = [];
   for (const e of ends) {
     for (const s of e.shots) {
@@ -97,6 +106,8 @@ export function plotShots(
         distanceM,
         sessionId: round.sessionId,
         roundId: round.id!,
+        endKey: `${round.id}:${e.index}`,
+        firstHit,
       });
     }
   }
@@ -123,6 +134,7 @@ export function analyse(all: PlotShot[]): Analysis {
   const pos = all.filter((s) => s.positioned);
   const rref = (pos[0] ?? all[0])?.rcm ?? 20;
   const dset = new Set(all.map((s) => s.distanceM).filter((d): d is number => d !== null));
+  const perEnd = all.length > 0 && all.every((s) => s.firstHit);
   const reached = all.reduce((a, s) => a + s.points, 0);
   const total = all.reduce((a, s) => a + s.max, 0);
   const perMax = all.length ? total / all.length : 10;
@@ -153,7 +165,12 @@ export function analyse(all: PlotShot[]): Analysis {
     nPos: pos.length,
     reached,
     total,
-    avg: all.length ? reached / all.length : 0,
+    avg: perEnd
+      ? reached / new Set(all.map((s) => s.endKey)).size
+      : all.length
+        ? reached / all.length
+        : 0,
+    perEnd,
     rings,
     best: BEST.map((p) => {
       const k = Math.max(1, Math.ceil(all.length * p - 1e-9));

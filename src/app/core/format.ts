@@ -16,5 +16,11 @@ export function fmtMonth(iso: string): string {
 }
 
 export const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(1)}%` : '–');
-export const avg = (s: Score) => (s.shots ? (s.reached / s.shots).toFixed(2) : '–');
+/** Average per arrow, or per target on rounds where only the first hit counts. */
+export const avg = (s: Score) =>
+  s.perEnd && s.ends
+    ? `${(s.reached / s.ends).toFixed(2)}/target`
+    : s.shots
+      ? (s.reached / s.shots).toFixed(2)
+      : '–';
 export const f1 = (v: number) => (isFinite(v) ? v.toFixed(1) : '–');

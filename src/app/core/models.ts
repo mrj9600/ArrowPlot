@@ -54,6 +54,10 @@ export interface Score {
   reached: number;
   total: number;
   shots: number;
+  /** Ends (targets) shot. */
+  ends?: number;
+  /** Scored per target, not per arrow (animal rounds where only the first hit counts). */
+  perEnd?: boolean;
 }
 
 export interface Session {

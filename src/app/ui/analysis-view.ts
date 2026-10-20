@@ -54,7 +54,7 @@ import { FaceShot, GroupOverlay, TargetFace } from './target-face';
               <div class="h">{{ pct(a.reached, a.total) }} · {{ a.n }} arrows</div>
             </div>
             <div class="stat">
-              <div class="k">Average per arrow</div>
+              <div class="k">{{ a.perEnd ? 'Average per target' : 'Average per arrow' }}</div>
               <div class="v">{{ a.avg.toFixed(2) }}</div>
               <div class="h">{{ a.nPos }} of {{ a.n }} with position</div>
             </div>

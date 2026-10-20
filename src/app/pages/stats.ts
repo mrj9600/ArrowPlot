@@ -83,7 +83,7 @@ const PERIODS = [
             <div class="v">{{ analysis().n }}</div>
           </div>
           <div class="stat">
-            <div class="k">Avg / arrow</div>
+            <div class="k">{{ analysis().perEnd ? 'Avg / target' : 'Avg / arrow' }}</div>
             <div class="v">{{ analysis().avg.toFixed(2) }}</div>
           </div>
           <div class="stat">
@@ -93,7 +93,7 @@ const PERIODS = [
         </div>
 
         <div class="card">
-          <h3>Average per arrow</h3>
+          <h3>{{ analysis().perEnd ? 'Average per target' : 'Average per arrow' }}</h3>
           <app-line-chart [points]="avgSeries()" label="Average score per arrow per session" />
         </div>
         @if (r50Series().length >= 2) {

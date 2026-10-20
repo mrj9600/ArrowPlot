@@ -5,9 +5,9 @@ import { from } from 'rxjs';
 import { db } from './db';
 import { Arrow, Bow, End, Round, RoundTemplate, Score, StandardRound, Session } from './models';
 import { BUILT_IN_ROUNDS } from './standard-rounds';
-import { getTarget, scoreEnd } from './targets';
+import { getTarget, isFirstHitStyle, scoreEnd } from './targets';
 
-export const EMPTY_SCORE: Score = { reached: 0, total: 0, shots: 0 };
+export const EMPTY_SCORE: Score = { reached: 0, total: 0, shots: 0, ends: 0, perEnd: false };
 
 /** Turns a Dexie query into a signal that updates whenever the data changes. */
 export function live<T>(query: () => Promise<T>, initial: T): Signal<T> {
@@ -31,6 +31,9 @@ export class Repo {
     if ((await db.standardRounds.count()) === 0) {
       await db.standardRounds.bulkAdd(BUILT_IN_ROUNDS as StandardRound[]);
     }
+    // Scores saved before ends were counted: fill them in once.
+    const stale = await db.rounds.filter((r) => r.score.ends === undefined).toArray();
+    for (const r of stale) await this.recomputeRound(r.id!);
     try {
       if (navigator.storage?.persist && !(await navigator.storage.persisted()))
         await navigator.storage.persist();
@@ -169,12 +172,14 @@ export class Repo {
     if (!r) return;
     const t = getTarget(r.targetId);
     const ends = await this.endsOf(roundId);
-    const score = { ...EMPTY_SCORE };
+    const score = { ...EMPTY_SCORE, perEnd: isFirstHitStyle(t, r.scoringStyle) };
     for (const e of ends) {
       const s = scoreEnd(t, r.scoringStyle, e.shots);
+      const shot = e.shots.filter((x) => x.ring !== -2).length;
       score.reached += s.reached;
       score.total += s.total;
-      score.shots += e.shots.filter((x) => x.ring !== -2).length;
+      score.shots += shot;
+      if (shot) score.ends! += 1;
     }
     await db.rounds.update(roundId, { score });
     await this.recomputeSession(r.sessionId);
@@ -187,8 +192,16 @@ export class Repo {
         reached: a.reached + r.score.reached,
         total: a.total + r.score.total,
         shots: a.shots + r.score.shots,
+        ends: a.ends! + (r.score.ends ?? 0),
+        perEnd: a.perEnd,
       }),
-      { ...EMPTY_SCORE },
+      {
+        ...EMPTY_SCORE,
+        // Per target only when every round that has been shot is a first-hit round.
+        perEnd:
+          rounds.some((r) => r.score.ends) &&
+          rounds.filter((r) => r.score.ends).every((r) => r.score.perEnd),
+      },
     );
     await db.sessions.update(sessionId, { score });
   }
