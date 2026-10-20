@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   input,
@@ -328,6 +329,8 @@ export class EndInputPage {
   private readonly arrow = signal<Arrow | null>(null);
   private readonly otherEnds = signal<End[]>([]);
   private existing: End | null = null;
+  /** Whether this end had not been saved when the page opened (Next then goes to the next end). */
+  private isNew = true;
 
   protected readonly shots = signal<Shot[]>([]);
   private readonly positioned = signal<boolean[]>([]);
@@ -476,6 +479,15 @@ export class EndInputPage {
     effect(() => {
       this.load(+this.id(), +this.end());
     });
+    // A scored end is kept when leaving with Back (or the app is closed) instead of Next.
+    const keep = () => {
+      if (document.visibilityState === 'hidden') void this.keepScored();
+    };
+    document.addEventListener('visibilitychange', keep);
+    inject(DestroyRef).onDestroy(() => {
+      document.removeEventListener('visibilitychange', keep);
+      void this.keepScored();
+    });
   }
 
   private async load(roundId: number, endIndex: number) {
@@ -485,6 +497,7 @@ export class EndInputPage {
     const arrow = session?.arrowId ? ((await db.arrows.get(session.arrowId)) ?? null) : null;
     const ends = await this.repo.endsOf(roundId);
     this.existing = ends.find((e) => e.index === endIndex) ?? null;
+    this.isNew = !this.existing;
     const n = round.shotsPerEnd;
     const shots: Shot[] = Array.from(
       { length: n },
@@ -765,23 +778,48 @@ export class EndInputPage {
     if (v !== null) this.comment.set(v.trim());
   }
 
+  /** The end as entered, or null while it is not complete. */
+  private entered(): End | null {
+    const r = this.round();
+    if (!r || !this.complete()) return null;
+    return {
+      ...(this.existing ?? {}),
+      roundId: r.id!,
+      index: this.endIndex(),
+      exact: this.positioned().every(Boolean),
+      saveTime: this.existing?.saveTime ?? nowTime(),
+      comment: this.comment(),
+      shots: this.shots(),
+    };
+  }
+
+  private async persist(end: End) {
+    const id = await this.repo.saveEnd(end);
+    this.existing = { ...end, id };
+  }
+
+  /** Saves a complete end that differs from what is stored, without leaving the page. */
+  private async keepScored() {
+    const end = this.entered();
+    if (!end || this.saving()) return;
+    const stored = this.existing;
+    const same =
+      stored &&
+      stored.comment === end.comment &&
+      stored.exact === end.exact &&
+      JSON.stringify(stored.shots) === JSON.stringify(end.shots);
+    if (!same) await this.persist(end);
+  }
+
   protected async save() {
     const r = this.round();
-    if (!r || !this.complete() || this.saving()) return;
+    const end = this.entered();
+    if (!r || !end || this.saving()) return;
     this.saving.set(true);
     try {
-      const end: End = {
-        ...(this.existing ?? {}),
-        roundId: r.id!,
-        index: this.endIndex(),
-        exact: this.positioned().every(Boolean),
-        saveTime: this.existing?.saveTime ?? nowTime(),
-        comment: this.comment(),
-        shots: this.shots(),
-      };
-      await this.repo.saveEnd(end);
+      await this.persist(end);
       const ends = await this.repo.endsOf(r.id!);
-      if (this.isLast() || this.existing) {
+      if (this.isLast() || !this.isNew) {
         this.router.navigate(['/round', r.id], { replaceUrl: true });
       } else {
         this.router.navigate(['/round', r.id, 'end', ends.length], { replaceUrl: true });
