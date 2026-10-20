@@ -44,6 +44,8 @@ export interface ScoringStyle {
    * style: only the first scoring arrow of an end counts, with the row for its arrow number.
    */
   points: number[][];
+  /** Points for a miss, when it is not 0 (e.g. a miss costs a point). */
+  miss?: number;
 }
 
 export interface TargetModel {
@@ -264,6 +266,7 @@ function namedStyleName(zones: Zone[], s: ScoringStyle): string {
       if (!parts.includes(text)) parts.push(text);
     }
   }
+  if (s.miss) parts.push(`Miss ${s.miss}`);
   const arrows = ['1st', '2nd', '3rd'].slice(0, s.points.length).join('/');
   return (s.points.length > 1 ? `${arrows} arrow: ` : '') + parts.join(' · ');
 }
@@ -685,9 +688,9 @@ export const TARGETS: TargetModel[] = [
     id: 101,
     name: '3D (5-3, body -1)',
     kind: '3d',
-    // A body hit or a miss costs a point; misses are entered as the body zone.
+    // A body hit or a miss costs a point.
     zones: [named(circle(0.2, RED, INK, 0.05, 0.05), 'Kill'), VITAL, BODY_ZONE],
-    styles: [style(null, false, [5, 3, -1])],
+    styles: [{ ...style(null, false, [5, 3, -1]), miss: -1 }],
     diameters: SIZES_3D,
   }),
 ];
@@ -727,6 +730,7 @@ const rowFor = (s: ScoringStyle, arrow: number) => s.points[Math.min(arrow, s.po
 /** Points for a zone. The arrow number only matters for animal-round styles. */
 export function pointsFor(t: TargetModel, styleIndex: number, ring: number, arrow = 0): number {
   const row = rowFor(getStyle(t, styleIndex), arrow);
+  if (ring === MISS) return getStyle(t, styleIndex).miss ?? 0;
   return ring >= 0 && ring < row.length ? row[ring] : 0;
 }
 

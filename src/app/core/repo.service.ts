@@ -31,9 +31,14 @@ export class Repo {
     if ((await db.standardRounds.count()) === 0) {
       await db.standardRounds.bulkAdd(BUILT_IN_ROUNDS as StandardRound[]);
     }
-    // Scores saved before ends were counted: fill them in once.
-    const stale = await db.rounds.filter((r) => r.score.ends === undefined).toArray();
+    // Scores saved by an older version are recomputed once: before ends were counted, and
+    // before a miss cost a point on 3D (5-3, body -1).
+    const rescored = await this.getSetting('scoringVersion', 1);
+    const stale = await db.rounds
+      .filter((r) => r.score.ends === undefined || (rescored < 2 && r.targetId === 101))
+      .toArray();
     for (const r of stale) await this.recomputeRound(r.id!);
+    if (rescored < 2) await this.setSetting('scoringVersion', 2);
     try {
       if (navigator.storage?.persist && !(await navigator.storage.persisted()))
         await navigator.storage.persist();

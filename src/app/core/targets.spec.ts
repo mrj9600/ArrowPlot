@@ -140,4 +140,11 @@ describe('targets', () => {
       'M:Body',
     ]);
   });
+
+  it('costs a point for a miss on 3D (5-3, body -1)', () => {
+    const t = getTarget(101);
+    const shots: Shot[] = [MISS, 2, 0].map((ring, index) => ({ index, x: 0, y: 0, ring }));
+    expect(scoreEnd(t, 0, shots).reached).toBe(-1 - 1 + 5);
+    expect(t.styles[0].name).toContain('Miss -1');
+  });
 });
