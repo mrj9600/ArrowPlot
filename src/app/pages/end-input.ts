@@ -199,7 +199,13 @@ interface Placed {
           </button>
         </div>
         @if (canWrap()) {
-          <button class="btn sm wrap" type="button" (click)="wrapHere()">
+          @if (endIndex() > 0 && !anyEntered()) {
+            <!-- For when Next was pressed on the last target without wrapping first. -->
+            <button class="btn sm wrap" type="button" (click)="wrapHere(targetNo() - 1)">
+              Target {{ targetNo() - 1 }} was the last: this is target 1
+            </button>
+          }
+          <button class="btn sm wrap" type="button" (click)="wrapHere(targetNo())">
             Last target of the course: continue at 1
           </button>
         }
@@ -764,11 +770,10 @@ export class EndInputPage {
     this.current.set(target);
   }
 
-  /** Marks this target as the course's last one: numbering continues at 1 after it. */
-  protected async wrapHere() {
+  /** Marks the given target as the course's last one: numbering continues at 1 after it. */
+  protected async wrapHere(wrapAt: number) {
     const r = this.round();
     if (!r) return;
-    const wrapAt = this.targetNo();
     await db.rounds.update(r.id!, { wrapAt });
     this.round.set({ ...r, wrapAt });
   }
