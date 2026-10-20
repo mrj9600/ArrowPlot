@@ -154,7 +154,7 @@ export class TrainingDetailPage {
   protected readonly sourceName: Record<string, string> = {
     mytargets: 'MyTargets backup',
     mantisx: 'MantisX',
-    archdps: '3D SKill Board (archDPS)',
+    archdps: '3D SKill Board',
   };
   protected readonly pct = pct;
   protected readonly avg = avg;
