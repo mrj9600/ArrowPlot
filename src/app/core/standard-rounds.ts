@@ -119,3 +119,8 @@ export function summarizeRound(s: StandardRound): string {
   const n = arrowCount(s);
   return `${dists} · ${faces} · ${n ? `${n} arrows` : 'open-ended'}`;
 }
+
+/** A round without its end count, e.g. "18 m · WA full face 40cm · 3 arrows per end". */
+export function describeRoundSetup(r: RoundTemplate): string {
+  return `${formatDimension(r.distance)} · ${getTarget(r.targetId).name} ${formatDimension(r.targetDiameter)} · ${r.shotsPerEnd} arrows per end`;
+}

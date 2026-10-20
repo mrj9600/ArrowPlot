@@ -11,7 +11,7 @@ import { Router, RouterLink } from '@angular/router';
 import { db } from '../core/db';
 import { Arrow, Bow, StandardRound, Training } from '../core/models';
 import { Repo, todayIso } from '../core/repo.service';
-import { describeRound } from '../core/standard-rounds';
+import { describeRoundSetup } from '../core/standard-rounds';
 import { AppBar } from '../ui/app-bar';
 
 /** Arrow numbers offered when no arrow set says otherwise. */
@@ -59,18 +59,39 @@ interface LastTraining {
         @if (!id()) {
           <label class="field"
             ><span>Round</span>
-            <select class="input" (change)="roundId.set(+$any($event.target).value || null)">
+            <select class="input" (change)="pickRound(+$any($event.target).value || null)">
               @for (s of rounds(); track s.id) {
                 <option [value]="s.id" [selected]="s.id === roundId()">{{ s.name }}</option>
               }
             </select>
           </label>
           @if (selectedRound(); as s) {
-            <ul class="small muted" style="margin:-4px 0 0;padding-left:18px">
-              @for (r of s.rounds; track $index) {
-                <li>{{ describe(r) }}</li>
-              }
-            </ul>
+            @for (r of s.rounds; track $index; let i = $index) {
+              <div class="round-line">
+                <span class="small muted">
+                  {{ s.rounds.length > 1 ? i + 1 + '. ' : '' }}{{ describe(r) }}
+                </span>
+                <label class="ends">
+                  <span class="small muted">Ends</span>
+                  <input
+                    class="input"
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="99"
+                    placeholder="No limit"
+                    [value]="ends()[i] || ''"
+                    (input)="setEnds(i, +$any($event.target).value)"
+                    [attr.aria-label]="
+                      'Number of ends' + (s.rounds.length > 1 ? ' for round ' + (i + 1) : '')
+                    "
+                  />
+                </label>
+              </div>
+            }
+            <span class="small muted" style="margin-top:-6px">
+              Ends are optional: leave empty to shoot as many as you like.
+            </span>
           } @else if (loaded()) {
             <p class="notice small" style="margin:0">
               You have no rounds yet.
@@ -167,6 +188,24 @@ interface LastTraining {
     </form>
   `,
   styles: `
+    .round-line {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: -4px;
+    }
+    .round-line > span {
+      flex: 1;
+    }
+    .ends {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .ends .input {
+      width: 92px;
+      min-height: 38px;
+    }
     .numbers {
       display: grid;
       gap: 6px;
@@ -183,7 +222,7 @@ export class TrainingFormPage {
   readonly id = input<string>();
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
-  protected readonly describe = describeRound;
+  protected readonly describe = describeRoundSetup;
 
   protected readonly bows = signal<Bow[]>([]);
   protected readonly arrows = signal<Arrow[]>([]);
@@ -194,6 +233,8 @@ export class TrainingFormPage {
   protected readonly title = signal('');
   protected readonly date = signal(todayIso());
   protected readonly roundId = signal<number | null>(null);
+  /** Number of ends per round of the chosen definition; 0 = no limit. */
+  protected readonly ends = signal<number[]>([]);
   protected readonly bowId = signal<number | null>(null);
   protected readonly arrowId = signal<number | null>(null);
   protected readonly location = signal('');
@@ -247,10 +288,19 @@ export class TrainingFormPage {
       this.arrowId.set(
         has(arrows, last.arrowId) ? last.arrowId! : arrows.length === 1 ? arrows[0].id! : null,
       );
-      this.roundId.set(has(rounds, last.standardId) ? last.standardId! : (rounds[0]?.id ?? null));
+      this.pickRound(has(rounds, last.standardId) ? last.standardId! : (rounds[0]?.id ?? null));
       this.chosen.set(new Set(last.arrowNumbers ?? this.pool()));
     }
     this.loaded.set(true);
+  }
+
+  protected pickRound(id: number | null) {
+    this.roundId.set(id);
+    this.ends.set(this.selectedRound()?.rounds.map((r) => r.endCount || 0) ?? []);
+  }
+  protected setEnds(i: number, v: number) {
+    const n = isFinite(v) ? Math.min(99, Math.max(0, Math.round(v))) : 0;
+    this.ends.update((l) => l.map((x, j) => (j === i ? n : x)));
   }
 
   protected toggle(n: string) {
@@ -308,7 +358,7 @@ export class TrainingFormPage {
           weather: null,
           source: 'manual',
         },
-        sr.rounds,
+        sr.rounds.map((r, i) => ({ ...r, endCount: this.ends()[i] ?? r.endCount })),
       );
       await this.repo.setSetting('lastTraining', {
         bowId: this.bowId() ?? undefined,

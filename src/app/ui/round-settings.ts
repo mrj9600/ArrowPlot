@@ -83,7 +83,7 @@ import { TargetFace } from './target-face';
           />
         </label>
         <label class="field">
-          <span>Ends</span>
+          <span>Ends (optional)</span>
           <input
             class="input"
             type="number"
@@ -91,12 +91,17 @@ import { TargetFace } from './target-face';
             min="0"
             max="99"
             [value]="value().endCount || ''"
-            placeholder="Open"
+            placeholder="No limit"
             (input)="patch({ endCount: clamp(+$any($event.target).value, 0, 99) })"
           />
         </label>
       </div>
     </div>
+    @if (!value().endCount) {
+      <span class="small muted" style="margin-top:-6px">
+        No fixed number of ends: shoot as many as you like.
+      </span>
+    }
   `,
   styles: `
     :host {
