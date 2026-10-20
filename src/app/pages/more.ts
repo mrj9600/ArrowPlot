@@ -134,6 +134,24 @@ import { APP_VERSION } from '../version';
         </ul>
       </div>
 
+      <div class="section-title">Experiments</div>
+      <div class="card flush">
+        <ul class="list">
+          <li>
+            <a class="item" routerLink="/lab/ocr"
+              ><app-icon name="info" />
+              <div class="main">
+                <div class="title">Test: read a score sheet</div>
+                <div class="sub">
+                  Try reading a handwritten sheet with on-device text recognition
+                </div>
+              </div>
+              <app-icon name="chevron" class="muted"
+            /></a>
+          </li>
+        </ul>
+      </div>
+
       <div class="section-title">About</div>
       <div class="card small" style="display:grid;gap:6px">
         <div class="row">
