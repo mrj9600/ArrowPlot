@@ -13,35 +13,38 @@ import { FaceShot, GroupOverlay, TargetFace } from './target-face';
       @if (a.n === 0) {
         <p class="muted small" style="margin:0">No arrows yet.</p>
       } @else {
-        <div class="top">
-          <div class="face">
-            <app-target-face
-              [targetId]="targetId()"
-              [scoringStyle]="styleIndex()"
-              [shots]="dots()"
-              [spot]="0"
-              [group]="showGroup() ? overlay() : null"
-              [arrowR]="a.positioned[0]?.arrowR ?? 0.012"
-              [view]="view()"
-              [minDot]="0.014"
-            />
-            <div class="seg" style="margin-top:8px">
-              <button type="button" [class.on]="!centred()" (click)="centred.set(false)">
-                As shot
-              </button>
-              <button
-                type="button"
-                [class.on]="centred()"
-                (click)="centred.set(true)"
-                [disabled]="a.noPos"
-              >
-                Centred
-              </button>
-              <button type="button" [class.on]="zoomed()" (click)="zoomed.set(!zoomed())">
-                Zoom
-              </button>
+        <div class="top" [class.no-face]="a.nPos === 0">
+          <!-- Arrows entered as scores only have no positions: nothing to draw. -->
+          @if (a.nPos > 0) {
+            <div class="face">
+              <app-target-face
+                [targetId]="targetId()"
+                [scoringStyle]="styleIndex()"
+                [shots]="dots()"
+                [spot]="0"
+                [group]="showGroup() ? overlay() : null"
+                [arrowR]="a.positioned[0]?.arrowR ?? 0.012"
+                [view]="view()"
+                [minDot]="0.014"
+              />
+              <div class="seg" style="margin-top:8px">
+                <button type="button" [class.on]="!centred()" (click)="centred.set(false)">
+                  As shot
+                </button>
+                <button
+                  type="button"
+                  [class.on]="centred()"
+                  (click)="centred.set(true)"
+                  [disabled]="a.noPos"
+                >
+                  Centred
+                </button>
+                <button type="button" [class.on]="zoomed()" (click)="zoomed.set(!zoomed())">
+                  Zoom
+                </button>
+              </div>
             </div>
-          </div>
+          }
           <div class="nums">
             <div class="stat">
               <div class="k">Score</div>
@@ -195,6 +198,12 @@ import { FaceShot, GroupOverlay, TargetFace } from './target-face';
       .top {
         grid-template-columns: 1fr;
       }
+    }
+    .top.no-face {
+      grid-template-columns: 1fr;
+    }
+    .top.no-face .nums {
+      grid-template-columns: 1fr 1fr;
     }
     .face {
       display: grid;
