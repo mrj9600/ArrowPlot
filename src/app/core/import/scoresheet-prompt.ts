@@ -86,6 +86,8 @@ format exactly and do not add fields of your own.
   Never change a clearly written arrow to make a total fit.
 - One wrong running total carries its error into every total after it. Compare the step from one
   running total to the next with the end, rather than the running totals themselves.
+- Addition errors on sheets are most often exactly 10 off (a slip when carrying). A total that is
+  10 away from the arrows is almost always an error on the sheet, not a misread arrow.
 - When arrows and totals disagree, keep the arrows as you read them and the totals exactly as
   written, and say in \`uncertain\` whether it looks like an addition error on the sheet or a value
   you may have misread.

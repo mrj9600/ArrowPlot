@@ -161,11 +161,19 @@ type EditField = 'date' | 'title' | 'location';
                             }
                           </td>
                           <td class="num">{{ row.points }}</td>
-                          <td class="num">{{ row.written ?? '–' }}</td>
+                          <td class="num">
+                            {{ row.written ?? '–' }}
+                            @if (row.addition) {
+                              <div class="sheet-run">10 off: addition?</div>
+                            }
+                          </td>
                           <td class="num" [class.bad-run]="row.runOff">
                             {{ row.total }}
                             @if (row.runOff) {
-                              <div class="sheet-run">sheet {{ row.writtenRunning }}</div>
+                              <div class="sheet-run">
+                                sheet {{ row.writtenRunning
+                                }}{{ row.runAddition ? ': addition?' : '' }}
+                              </div>
                             }
                           </td>
                         </tr>
@@ -445,12 +453,18 @@ export class ImportScoresheetPage {
       // sheet would otherwise mark every row after it.
       const before = i ? (r.rows[i - 1].writtenRunning ?? total - row.points) : 0;
       const runOff = row.writtenRunning !== null && row.writtenRunning - before !== row.points;
+      // Sheets are most often exactly 10 off when a total was added up wrongly.
+      const tenOff = (d: number) => Math.abs(d) === 10;
+      const addition = row.written !== null && tenOff(row.written - row.points);
+      const runAddition = runOff && tenOff(row.writtenRunning! - before - row.points);
       return {
         ...row,
         pills,
         total,
         runOff,
         off: row.written !== null && row.written !== row.points,
+        addition,
+        runAddition,
       };
     });
   }
