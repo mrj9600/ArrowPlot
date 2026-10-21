@@ -264,7 +264,7 @@ export function planSheet(json: unknown): SheetPlan {
   const sessions = j.sessions.map((s, i): PlannedSession => {
     const where = j.sessions!.length > 1 ? `Session ${i + 1}` : 'Session';
     const date = /^\d{4}-\d{2}-\d{2}$/.test(String(s.date ?? '')) ? s.date! : today;
-    if (date !== s.date) problems.push(`${where}: no readable date; today is used.`);
+    if (date !== s.date) problems.push(`${where}: no date on the sheet; today is filled in, change it below if needed.`);
     const rounds = (s.rounds ?? [])
       .map((r, k) =>
         planRound(r, s.rounds.length > 1 ? `${where}, round ${k + 1}` : where, problems),

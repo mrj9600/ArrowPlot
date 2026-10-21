@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { formatDimension } from '../core/dimension';
-import { fmtDate } from '../core/format';
 import { extractJson, importSheet, planSheet, SheetPlan } from '../core/import/scoresheet';
 import { scoresheetPrompt } from '../core/import/scoresheet-prompt';
 import { Arrow, Bow } from '../core/models';
@@ -9,6 +8,8 @@ import { Repo } from '../core/repo.service';
 import { faceLabel } from '../core/targets';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
+
+type EditField = 'date' | 'title' | 'location';
 
 @Component({
   selector: 'app-import-scoresheet',
@@ -61,10 +62,34 @@ import { Icon } from '../ui/icon';
           <h3 style="margin:0">3. Check and import</h3>
           @for (s of p.sessions; track $index) {
             <div class="sess">
-              <b>{{ fmtDate(s.date, true) }} · {{ s.title }}</b>
-              @if (s.location) {
-                <span class="small muted">{{ s.location }}</span>
-              }
+              @let i = $index;
+              <div class="grid2 stack">
+                <label class="field"
+                  ><span>Date</span>
+                  <input
+                    class="input"
+                    type="date"
+                    [value]="s.date"
+                    (input)="edit(i, 'date', $any($event.target).value)"
+                  />
+                </label>
+                <label class="field"
+                  ><span>Title</span>
+                  <input
+                    class="input"
+                    [value]="s.title"
+                    (input)="edit(i, 'title', $any($event.target).value)"
+                  />
+                </label>
+              </div>
+              <label class="field"
+                ><span>Location</span>
+                <input
+                  class="input"
+                  [value]="s.location"
+                  (input)="edit(i, 'location', $any($event.target).value)"
+                />
+              </label>
               @for (r of s.rounds; track $index) {
                 <div class="small">
                   {{ roundText(r) }}
@@ -167,7 +192,6 @@ import { Icon } from '../ui/icon';
 })
 export class ImportScoresheetPage {
   private readonly repo = inject(Repo);
-  protected readonly fmtDate = fmtDate;
 
   protected readonly text = signal('');
   protected readonly error = signal('');
@@ -179,7 +203,9 @@ export class ImportScoresheetPage {
   protected readonly bowId = signal<number | null>(null);
   protected readonly arrowId = signal<number | null>(null);
 
-  protected readonly plan = computed<SheetPlan | null>(() => {
+  /** Date, title and location typed over what the sheet (or the AI) gave, per session. */
+  private readonly edits = signal<Partial<Record<EditField, string>>[]>([]);
+  private readonly read = computed<SheetPlan | null>(() => {
     const t = this.text().trim();
     if (!t) return null;
     try {
@@ -187,6 +213,12 @@ export class ImportScoresheetPage {
     } catch {
       return null;
     }
+  });
+  protected readonly plan = computed<SheetPlan | null>(() => {
+    const p = this.read();
+    if (!p) return null;
+    const e = this.edits();
+    return { ...p, sessions: p.sessions.map((s, i) => ({ ...s, ...e[i] })) };
   });
 
   constructor() {
@@ -201,8 +233,18 @@ export class ImportScoresheetPage {
     if (arrows.length === 1) this.arrowId.set(arrows[0].id!);
   }
 
+  protected edit(i: number, field: EditField, v: string) {
+    if (field === 'date' && !v) return;
+    this.edits.update((l) => {
+      const next = [...l];
+      next[i] = { ...next[i], [field]: field === 'date' ? v : v.trim() };
+      return next;
+    });
+  }
+
   protected setText(v: string) {
     this.text.set(v);
+    this.edits.set([]);
     this.done.set([]);
     this.error.set('');
     if (!v.trim()) return;
@@ -244,7 +286,7 @@ export class ImportScoresheetPage {
       formatDimension(r.distance),
       faceLabel(r.model.id, r.diameter),
       r.model.styles[r.style]?.name,
-      `${r.shotsPerEnd} arrows per end`,
+      `${r.shotsPerEnd} arrow${r.shotsPerEnd === 1 ? '' : 's'} per end`,
       r.startTarget > 1 ? `from target ${r.startTarget}` : '',
     ]
       .filter(Boolean)
