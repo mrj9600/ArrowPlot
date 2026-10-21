@@ -9,6 +9,7 @@ import { parseDimension } from '../dimension';
 import { Arrow, Bow, BOW_TYPES, End, Round, Shot, Session, WEATHER } from '../models';
 import { EMPTY_SCORE, Repo } from '../repo.service';
 import { splitRoundDefinition } from '../standard-rounds';
+import { upgradeFace } from '../targets';
 import { columns, getSql, query, Row, tables } from './sqlite';
 
 /**
@@ -306,14 +307,18 @@ export async function importMyTargets(
       for (const [id, sr] of p.standardRounds) {
         const parts = splitRoundDefinition(
           str(sr.row['name']),
-          sr.templates.map((t) => ({
-            distance: parseDimension(str(t['distance'])),
-            targetId: Number(t['targetId']),
-            scoringStyle: Number(t['targetScoringStyleIndex']),
-            targetDiameter: parseDimension(str(t['targetDiameter'])),
-            shotsPerEnd: Number(t['shotsPerEnd']),
-            endCount: Number(t['endCount']),
-          })),
+          sr.templates.map((t) => {
+            const tpl = {
+              distance: parseDimension(str(t['distance'])),
+              targetId: Number(t['targetId']),
+              scoringStyle: Number(t['targetScoringStyleIndex']),
+              targetDiameter: parseDimension(str(t['targetDiameter'])),
+              shotsPerEnd: Number(t['shotsPerEnd']),
+              endCount: Number(t['endCount']),
+            };
+            upgradeFace(tpl);
+            return tpl;
+          }),
         );
         for (const [i, part] of parts.entries()) {
           const ref = `mt:sr:${id}:${i}|${part.name}`;
@@ -373,6 +378,7 @@ export async function importMyTargets(
             comment: str(rr.row['comment']),
             score: { ...EMPTY_SCORE },
           };
+          upgradeFace(round); // MyTargets faces that are a scoring of another face here
           const roundId = await db.rounds.add(round);
           for (const er of rr.ends) {
             const imageIds: number[] = [];

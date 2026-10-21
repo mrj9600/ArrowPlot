@@ -84,8 +84,7 @@ describe('targets', () => {
       [14, 2, 1],
       [15, 7, 1],
       [16, 9, 1],
-      [17, 5, 1],
-      [18, 5, 1],
+      [17, 5, 2], // IBO as in MyTargets, plus NFAS (MyTargets' face 18, moved here on import)
       [19, 11, 5],
       [20, 2, 4],
       [21, 3, 6],
@@ -149,10 +148,14 @@ describe('targets', () => {
     expect(t.styles[2].name).toContain('Miss -1');
   });
 
-  it('moves rounds off the retired 5-3 face', () => {
+  it('moves rounds off retired faces', () => {
     const r = { targetId: 101, scoringStyle: 0 };
     expect(upgradeFace(r)).toBe(true);
     expect(r).toEqual({ targetId: 100, scoringStyle: 2 });
     expect(upgradeFace({ targetId: 17, scoringStyle: 0 })).toBe(false);
+    const nfas = { targetId: 18, scoringStyle: 0 };
+    upgradeFace(nfas);
+    expect(nfas).toEqual({ targetId: 17, scoringStyle: 1 });
+    expect(getTarget(17).styles[1].name).toBe('Red 24 · 10 ring 20 · Vital 16 · Body 0');
   });
 });
