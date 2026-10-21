@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { Repo } from '../core/repo.service';
+import { NumberInput } from '../ui/number-input';
 import { AppBar } from '../ui/app-bar';
 
 type Phase = 'idle' | 'walkup' | 'shoot' | 'done';
@@ -20,7 +21,7 @@ interface TimerSettings {
 /** WA-style shooting timer: walk-up (red), shooting (green), warning (yellow), end. */
 @Component({
   selector: 'app-timer',
-  imports: [AppBar],
+  imports: [NumberInput, AppBar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar title="Shooting timer" back="/more" />
@@ -39,8 +40,8 @@ interface TimerSettings {
           type="number"
           min="0"
           max="60"
-          [value]="s().walkup"
-          (input)="set('walkup', +$any($event.target).value)"
+          [appNumber]="s().walkup"
+          (appNumberChange)="set('walkup', $event)"
       /></label>
       <label class="field"
         ><span>Shooting (s)</span>
@@ -49,8 +50,8 @@ interface TimerSettings {
           type="number"
           min="10"
           max="600"
-          [value]="s().shoot"
-          (input)="set('shoot', +$any($event.target).value)"
+          [appNumber]="s().shoot"
+          (appNumberChange)="set('shoot', $event)"
       /></label>
       <label class="field"
         ><span>Warning (s)</span>
@@ -59,8 +60,8 @@ interface TimerSettings {
           type="number"
           min="0"
           max="120"
-          [value]="s().warn"
-          (input)="set('warn', +$any($event.target).value)"
+          [appNumber]="s().warn"
+          (appNumberChange)="set('warn', $event)"
       /></label>
     </div>
     <div class="presets">

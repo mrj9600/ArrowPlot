@@ -14,10 +14,11 @@ import { Repo } from '../core/repo.service';
 import { getTarget } from '../core/targets';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
+import { NumberInput } from '../ui/number-input';
 
 @Component({
   selector: 'app-import-archdps',
-  imports: [AppBar, RouterLink, Icon],
+  imports: [AppBar, RouterLink, Icon, NumberInput],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar title="Import 3D SKill Board" back="/more" />
@@ -105,8 +106,8 @@ import { Icon } from '../ui/icon';
                       class="input"
                       type="number"
                       inputmode="decimal"
-                      [value]="discDistance()"
-                      (input)="discDistance.set(+$any($event.target).value || 18)"
+                      [appNumber]="discDistance()"
+                      (appNumberChange)="$event > 0 && discDistance.set($event)"
                     />
                     <select
                       class="input"

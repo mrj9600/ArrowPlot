@@ -15,13 +15,14 @@ import { Arrow, Bow, LengthUnit } from '../core/models';
 import { Repo } from '../core/repo.service';
 import { getTarget } from '../core/targets';
 import { AppBar } from '../ui/app-bar';
+import { NumberInput } from '../ui/number-input';
 import { Icon } from '../ui/icon';
 
 type Action = 'new' | 'positions' | 'skip';
 
 @Component({
   selector: 'app-import-mantisx',
-  imports: [AppBar, RouterLink, Icon],
+  imports: [NumberInput, AppBar, RouterLink, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar title="Import MantisX" back="/more" />
@@ -115,10 +116,8 @@ type Action = 'new' | 'positions' | 'skip';
                 type="number"
                 min="1"
                 max="12"
-                [value]="opt().shotsPerEnd"
-                (input)="
-                  patch({ shotsPerEnd: Math.min(12, Math.max(1, +$any($event.target).value || 3)) })
-                "
+                [appNumber]="opt().shotsPerEnd"
+                (appNumberChange)="patch({ shotsPerEnd: Math.min(12, Math.max(1, $event)) })"
               />
             </label>
           </div>

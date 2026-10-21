@@ -2,12 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, model } from '@angular/co
 import { dim, formatDimension, sameDimension } from '../core/dimension';
 import { LengthUnit, RoundTemplate } from '../core/models';
 import { FIXED_3D_SIZE, getTarget, hasFaceSizes, TARGET_GROUPS } from '../core/targets';
+import { NumberInput } from './number-input';
 import { TargetFace } from './target-face';
 
 /** Distance, face, scoring and end layout of one round. */
 @Component({
   selector: 'app-round-settings',
-  imports: [TargetFace],
+  imports: [NumberInput, TargetFace],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="wrap">
@@ -87,8 +88,8 @@ import { TargetFace } from './target-face';
             inputmode="numeric"
             min="1"
             max="12"
-            [value]="value().shotsPerEnd"
-            (input)="patch({ shotsPerEnd: clamp(+$any($event.target).value, 1, 12) })"
+            [appNumber]="value().shotsPerEnd"
+            (appNumberChange)="patch({ shotsPerEnd: clamp($event, 1, 12) })"
           />
         </label>
         <label class="field">

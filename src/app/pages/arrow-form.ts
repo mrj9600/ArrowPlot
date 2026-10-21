@@ -15,11 +15,12 @@ import { Arrow, ARROW_FIELDS, LengthUnit } from '../core/models';
 import { Repo } from '../core/repo.service';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
+import { NumberInput } from '../ui/number-input';
 import { ImageThumb } from '../ui/image-thumb';
 
 @Component({
   selector: 'app-arrow-form',
-  imports: [AppBar, Icon, ImageThumb],
+  imports: [NumberInput, AppBar, Icon, ImageThumb],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-bar [title]="isNew() ? 'New arrows' : arrow().name || 'Arrows'" back="/equipment">
@@ -79,8 +80,8 @@ import { ImageThumb } from '../ui/image-thumb';
                   inputmode="numeric"
                   min="1"
                   max="99"
-                  [value]="arrow().maxArrowNumber"
-                  (input)="set({ maxArrowNumber: Math.max(1, +$any($event.target).value || 1) })"
+                  [appNumber]="arrow().maxArrowNumber"
+                  (appNumberChange)="set({ maxArrowNumber: Math.max(1, Math.round($event)) })"
                 />
               </label>
             </div>
