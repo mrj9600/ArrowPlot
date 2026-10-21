@@ -47,6 +47,16 @@ import { APP_VERSION } from '../version';
             /></a>
           </li>
           <li>
+            <a class="item" routerLink="/import/scoresheet"
+              ><app-icon name="upload" />
+              <div class="main">
+                <div class="title">Handwritten scoresheet</div>
+                <div class="sub">Let an AI read a photo of the sheet, then import its answer</div>
+              </div>
+              <app-icon name="chevron" class="muted"
+            /></a>
+          </li>
+          <li>
             <a class="item" routerLink="/import/archdps"
               ><app-icon name="upload" />
               <div class="main">

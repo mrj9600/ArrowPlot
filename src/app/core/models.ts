@@ -80,7 +80,7 @@ export interface Session {
   location: string;
   comment: string;
   /** Where the session came from: entered here, a MyTargets backup or a MantisX export. */
-  source: 'manual' | 'mytargets' | 'mantisx' | 'archdps';
+  source: 'manual' | 'mytargets' | 'mantisx' | 'archdps' | 'scoresheet';
   /** Stable reference into the source ("mt:<file>:<id>", "mantis:<session id>") to detect re-imports. */
   sourceRef?: string;
   /** Cached totals, kept up to date by the repository. */

@@ -34,6 +34,12 @@ const KIND_LABEL: Record<TargetKind, string> = {
   '3d': '3D',
 };
 
+const SOURCE_LABEL: Partial<Record<Session['source'], string>> = {
+  mantisx: 'MantisX',
+  archdps: '3D SKill Board',
+  scoresheet: 'Scoresheet',
+};
+
 @Component({
   selector: 'app-sessions',
   imports: [AppBar, RouterLink, Icon, InstallCard],
@@ -347,7 +353,7 @@ export class SessionsPage {
         t.bowId ? bowName.get(t.bowId) : '',
         (dists.get(t.id!) ?? []).join(', '),
         `${t.score.shots} arrows`,
-        t.source === 'mantisx' ? 'MantisX' : t.source === 'archdps' ? '3D SKill Board' : '',
+        SOURCE_LABEL[t.source] ?? '',
       ].filter(Boolean);
       out.at(-1)!.rows.push({
         t,

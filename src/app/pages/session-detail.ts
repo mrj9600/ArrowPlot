@@ -7,7 +7,7 @@ import { analyseBundle, isSighted, loadSession, SessionBundle } from '../core/bu
 import { logEntries } from '../core/course-log';
 import { formatDimension } from '../core/dimension';
 import { avg, fmtDate, pct } from '../core/format';
-import { Round } from '../core/models';
+import { Round, Session } from '../core/models';
 import { Repo } from '../core/repo.service';
 import { endLimit } from '../core/numbering';
 import { faceLabel } from '../core/targets';
@@ -155,10 +155,12 @@ export class SessionDetailPage {
   private readonly repo = inject(Repo);
   private readonly router = inject(Router);
   protected readonly fmtDate = fmtDate;
-  protected readonly sourceName: Record<string, string> = {
+  protected readonly sourceName: Record<Session['source'], string> = {
+    manual: '',
     mytargets: 'MyTargets backup',
     mantisx: 'MantisX',
     archdps: '3D SKill Board',
+    scoresheet: 'Scoresheet (read by AI)',
   };
   protected readonly pct = pct;
   protected readonly avg = avg;

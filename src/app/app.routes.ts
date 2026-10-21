@@ -55,6 +55,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/import-mytargets').then((m) => m.ImportMyTargetsPage),
   },
   {
+    path: 'import/scoresheet',
+    loadComponent: () => import('./pages/import-scoresheet').then((m) => m.ImportScoresheetPage),
+  },
+  {
     path: 'import/mantisx',
     loadComponent: () => import('./pages/import-mantisx').then((m) => m.ImportMantisPage),
   },

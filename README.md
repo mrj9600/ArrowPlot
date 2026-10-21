@@ -56,7 +56,7 @@ Code map:
 
 - `src/app/core/targets.ts`: target faces and scoring
 - `src/app/core/stats.ts`: group analysis
-- `src/app/core/import/`: MyTargets and 3D SKill Board (sql.js), MantisX (CSV) and ArrowPlot backup formats
+- `src/app/core/import/`: MyTargets and 3D SKill Board (sql.js), MantisX (CSV), scoresheet JSON (with the AI instructions) and ArrowPlot backup formats
 - `src/app/pages/`: one standalone component per screen; `src/app/ui/`: shared components
 
 ## Deployment
