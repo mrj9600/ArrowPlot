@@ -542,7 +542,8 @@ export const TARGETS: TargetModel[] = [
   }),
   face({
     id: 20,
-    name: 'IFAA animal',
+    // IFAA animal scoring; named after its zones like the other 3D faces.
+    name: '3D (2 zones)',
     kind: '3d',
     zones: [ANIMAL_VITAL, ANIMAL_BODY],
     styles: [
@@ -564,36 +565,6 @@ export const TARGETS: TargetModel[] = [
         [15, 12],
         [10, 7],
         [5, 2],
-      ]),
-    ],
-    diameters: SIZES_ANIMAL,
-  }),
-  face({
-    id: 21,
-    name: 'NFAA animal',
-    kind: '3d',
-    zones: [ANIMAL_SPOT, ANIMAL_VITAL, ANIMAL_BODY],
-    styles: [
-      animalStyle([
-        [21, 20, 18],
-        [17, 16, 14],
-        [13, 12, 10],
-      ]),
-      style(null, false, [20, 16, 10]),
-      style(null, false, [15, 12, 7]),
-      animalStyle([
-        [20, 18, 16],
-        [14, 12, 10],
-        [8, 6, 4],
-      ]),
-      animalStyle([
-        [20, 18, 16],
-        [12, 10, 8],
-        [6, 4, 2],
-      ]),
-      animalStyle([
-        [15, 10, 5],
-        [12, 7, 2],
       ]),
     ],
     diameters: SIZES_ANIMAL,
@@ -679,6 +650,28 @@ export const TARGETS: TargetModel[] = [
       ]),
       // A body hit or a miss costs a point (5/3/-1, e.g. DGS).
       { ...style(null, false, [5, 3, -1]), miss: -1 },
+      // NFAA animal (MyTargets' face 21), spot scored as the kill zone.
+      animalStyle([
+        [21, 20, 18],
+        [17, 16, 14],
+        [13, 12, 10],
+      ]),
+      style(null, false, [20, 16, 10]),
+      style(null, false, [15, 12, 7]),
+      animalStyle([
+        [20, 18, 16],
+        [14, 12, 10],
+        [8, 6, 4],
+      ]),
+      animalStyle([
+        [20, 18, 16],
+        [12, 10, 8],
+        [6, 4, 2],
+      ]),
+      animalStyle([
+        [15, 10, 5],
+        [12, 7, 2],
+      ]),
     ],
     diameters: SIZES_3D,
   }),
@@ -687,15 +680,16 @@ export const TARGETS: TargetModel[] = [
 const BY_ID = new Map(TARGETS.map((t) => [t.id, t]));
 
 /** Faces that became a scoring of another face: old id → the face and scoring to use now. */
-const RETIRED: Record<number, { targetId: number; scoringStyle: number }> = {
-  18: { targetId: 17, scoringStyle: 1 }, // NFAS 3D → 3D (4 zones), NFAS scoring
-  101: { targetId: 100, scoringStyle: 2 }, // "3D (5-3, body -1)" → 3D (3 zones), 5/3/-1
+const RETIRED: Record<number, { targetId: number; style: (old: number) => number }> = {
+  18: { targetId: 17, style: () => 1 }, // NFAS 3D → 3D (4 zones), NFAS scoring
+  21: { targetId: 100, style: (s) => 3 + s }, // NFAA animal → 3D (3 zones), its 6 scorings
+  101: { targetId: 100, style: () => 2 }, // "3D (5-3, body -1)" → 3D (3 zones), 5/3/-1
 };
 
 /** Moves a round (or round definition) off a retired face; returns whether it changed. */
 export function upgradeFace(r: { targetId: number; scoringStyle: number }): boolean {
   const to = RETIRED[r.targetId];
-  if (to) Object.assign(r, to);
+  if (to) Object.assign(r, { targetId: to.targetId, scoringStyle: to.style(r.scoringStyle) });
   return !!to;
 }
 
@@ -704,7 +698,7 @@ export const TARGET_GROUPS: { name: string; ids: number[] }[] = [
   { name: 'World Archery target', ids: [0, 1, 2, 3, 5, 6, 26, 27] },
   { name: 'Indoor (Vegas, NFAA)', ids: [4, 10, 11] },
   { name: 'Field', ids: [13, 25, 7, 8, 9, 22] },
-  { name: '3D', ids: [100, 17, 15, 16, 19, 20, 21] },
+  { name: '3D', ids: [20, 100, 17, 15, 16, 19] },
   { name: 'Other', ids: [12, 14, 23, 24, 28] },
 ];
 

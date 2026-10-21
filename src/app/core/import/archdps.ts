@@ -62,8 +62,8 @@ const TYPES: Record<number, TypeMap> = {
   },
   11273: {
     label: '3D, 1 arrow (20/16/10)',
-    targetId: 21,
-    style: 1,
+    targetId: 100,
+    style: 4,
     zone: byKill,
     diameter: dim(-4, null),
   },
