@@ -77,6 +77,16 @@ export interface PlannedRound {
   endMismatches: string[];
   /** Ends imported from a total only (no arrows), so the rings are a guess. */
   fromTotals: number;
+  /** Per end, for the scoresheet preview: its number, its points, and the sheet's own total. */
+  rows: SheetRow[];
+}
+export interface SheetRow {
+  /** Target number on 3D and field, else the end number. */
+  no: number;
+  points: number;
+  written: number | null;
+  fromTotal: boolean;
+  note: string;
 }
 export interface PlannedSession {
   date: string;
@@ -167,6 +177,7 @@ function planRound(r: SheetRound, where: string, problems: string[]): PlannedRou
     ),
   );
   const ends: End[] = [];
+  const rows: SheetRow[] = [];
   const endMismatches: string[] = [];
   let fromTotals = 0;
   let reached = 0;
@@ -222,6 +233,15 @@ function planRound(r: SheetRound, where: string, problems: string[]): PlannedRou
       estimated: Number(e.judged) > 0 ? Number(e.judged) : null,
       measured: Number(e.measured) > 0 ? Number(e.measured) : null,
     };
+    const written = e.total != null && isFinite(Number(e.total)) ? Number(e.total) : null;
+    const no = Number(e.target) > 0 ? Number(e.target) : (rows.at(-1)?.no ?? 0) + 1;
+    rows.push({
+      no,
+      points: s,
+      written,
+      fromTotal: !e.arrows?.length,
+      note: String(e.note ?? '').trim(),
+    });
     ends.push({
       roundId: 0,
       index: ends.length,
@@ -249,6 +269,7 @@ function planRound(r: SheetRound, where: string, problems: string[]): PlannedRou
     writtenTotal: r.writtenTotal != null ? Number(r.writtenTotal) : null,
     endMismatches,
     fromTotals,
+    rows,
   };
 }
 
@@ -264,7 +285,10 @@ export function planSheet(json: unknown): SheetPlan {
   const sessions = j.sessions.map((s, i): PlannedSession => {
     const where = j.sessions!.length > 1 ? `Session ${i + 1}` : 'Session';
     const date = /^\d{4}-\d{2}-\d{2}$/.test(String(s.date ?? '')) ? s.date! : today;
-    if (date !== s.date) problems.push(`${where}: no date on the sheet; today is filled in, change it below if needed.`);
+    if (date !== s.date)
+      problems.push(
+        `${where}: no date on the sheet; today is filled in, change it below if needed.`,
+      );
     const rounds = (s.rounds ?? [])
       .map((r, k) =>
         planRound(r, s.rounds.length > 1 ? `${where}, round ${k + 1}` : where, problems),

@@ -1,11 +1,17 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { formatDimension } from '../core/dimension';
-import { extractJson, importSheet, planSheet, SheetPlan } from '../core/import/scoresheet';
+import {
+  extractJson,
+  importSheet,
+  PlannedRound,
+  planSheet,
+  SheetPlan,
+} from '../core/import/scoresheet';
 import { scoresheetPrompt } from '../core/import/scoresheet-prompt';
-import { Arrow, Bow } from '../core/models';
+import { Arrow, Bow, NOT_ENTERED } from '../core/models';
 import { Repo } from '../core/repo.service';
-import { faceLabel } from '../core/targets';
+import { contrastOn, faceLabel, zoneLabel } from '../core/targets';
 import { AppBar } from '../ui/app-bar';
 import { Icon } from '../ui/icon';
 
@@ -60,6 +66,24 @@ type EditField = 'date' | 'title' | 'location';
       @if (plan(); as p) {
         <div class="card" style="display:grid;gap:12px">
           <h3 style="margin:0">3. Check and import</h3>
+          <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+            <label class="btn sm"
+              ><app-icon name="upload" /> {{ photo() ? 'Other photo' : 'Show the photo here' }}
+              <input type="file" accept="image/*" hidden (change)="pickPhoto($event)"
+            /></label>
+            <span class="small muted"
+              >to compare it with the sheet below (it stays on this device)</span
+            >
+          </div>
+          @if (photo(); as url) {
+            <img
+              class="photo"
+              [class.big]="photoBig()"
+              [src]="url"
+              alt="The scoresheet"
+              (click)="photoBig.set(!photoBig())"
+            />
+          }
           @for (s of p.sessions; track $index) {
             <div class="sess">
               @let i = $index;
@@ -91,10 +115,11 @@ type EditField = 'date' | 'title' | 'location';
                 />
               </label>
               @for (r of s.rounds; track $index) {
-                <div class="small">
-                  {{ roundText(r) }}
+                <div class="small round-head">
+                  <b>{{ roundText(r) }}</b>
                   <div [class.bad]="r.writtenTotal !== null && r.writtenTotal !== r.reached">
-                    {{ r.ends.length }} ends · {{ r.reached }} points{{
+                    {{ r.ends.length }} {{ numbered(r) ? 'targets' : 'ends' }} ·
+                    {{ r.reached }} points{{
                       r.writtenTotal !== null
                         ? r.writtenTotal === r.reached
                           ? ' (same as the sheet)'
@@ -102,16 +127,59 @@ type EditField = 'date' | 'title' | 'location';
                         : ''
                     }}
                   </div>
-                  @for (m of r.endMismatches; track m) {
-                    <div class="bad">{{ m }}</div>
-                  }
-                  @if (r.fromTotals) {
-                    <div class="muted">
-                      {{ r.fromTotals }} end{{ r.fromTotals === 1 ? '' : 's' }} from totals only:
-                      the arrows are spread out to match.
-                    </div>
-                  }
                 </div>
+                <!-- The sheet as it will be imported, to compare with the photo row by row. -->
+                <div class="scroll-x">
+                  <table class="tbl sheet">
+                    <thead>
+                      <tr>
+                        <th>{{ numbered(r) ? 'Target' : 'End' }}</th>
+                        <th class="arrows">Arrows</th>
+                        <th>Points</th>
+                        <th>Sheet</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of sheetRows(r); track $index) {
+                        <tr [class.off]="row.off">
+                          <td class="no">{{ row.no }}</td>
+                          <td class="arrows">
+                            @if (row.fromTotal) {
+                              <span class="muted">from total</span>
+                            } @else {
+                              <div class="pills">
+                                @for (p of row.pills; track $index) {
+                                  <span
+                                    class="ring sm"
+                                    [style.background]="p.fill"
+                                    [style.color]="p.ink"
+                                    >{{ p.label }}</span
+                                  >
+                                }
+                              </div>
+                            }
+                          </td>
+                          <td class="num">{{ row.points }}</td>
+                          <td class="num">{{ row.written ?? '–' }}</td>
+                          <td class="num">{{ row.total }}</td>
+                        </tr>
+                        @if (row.note) {
+                          <tr class="note-row">
+                            <td></td>
+                            <td colspan="4" class="muted">{{ row.note }}</td>
+                          </tr>
+                        }
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                @if (r.fromTotals) {
+                  <div class="small muted">
+                    {{ r.fromTotals }} end{{ r.fromTotals === 1 ? '' : 's' }} had only a total: the
+                    arrows are spread out to match it.
+                  </div>
+                }
               }
             </div>
           }
@@ -170,6 +238,53 @@ type EditField = 'date' | 'title' | 'location';
     </div>
   `,
   styles: `
+    .photo {
+      width: 100%;
+      max-height: 45vh;
+      object-fit: contain;
+      border-radius: 8px;
+      background: var(--surface-2, #eee);
+      cursor: zoom-in;
+    }
+    .photo.big {
+      max-height: none;
+      cursor: zoom-out;
+    }
+    .round-head {
+      display: grid;
+      gap: 2px;
+      margin-top: 6px;
+    }
+    .sheet td,
+    .sheet th {
+      padding: 4px 6px;
+    }
+    .sheet .arrows {
+      text-align: left;
+    }
+    .sheet .pills {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+    }
+    .sheet .no {
+      font-weight: 700;
+    }
+    .sheet .num {
+      text-align: right;
+    }
+    .sheet tr.off td {
+      background: color-mix(in srgb, var(--bad, #c62828) 14%, transparent);
+    }
+    .sheet tr.off td.num:nth-child(4) {
+      color: var(--bad, #c62828);
+      font-weight: 700;
+    }
+    .sheet .note-row td {
+      padding-top: 0;
+      text-align: left;
+      font-size: 12px;
+    }
     .answer {
       min-height: 140px;
       font-family: ui-monospace, monospace;
@@ -281,7 +396,43 @@ export class ImportScoresheetPage {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  protected roundText(r: SheetPlan['sessions'][number]['rounds'][number]) {
+  /** A photo of the sheet shown above the digital one, only in this page (never saved). */
+  protected readonly photo = signal<string | null>(null);
+  protected readonly photoBig = signal(false);
+  protected pickPhoto(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const f = input.files?.[0];
+    input.value = '';
+    if (!f) return;
+    const old = this.photo();
+    if (old) URL.revokeObjectURL(old);
+    this.photo.set(URL.createObjectURL(f));
+  }
+
+  protected numbered(r: PlannedRound) {
+    return r.model.kind === '3d' || r.model.kind === 'field';
+  }
+
+  /** Rows of the digital scoresheet: arrows as coloured rings, points, sheet total, running total. */
+  protected sheetRows(r: PlannedRound) {
+    let total = 0;
+    return r.rows.map((row, i) => {
+      total += row.points;
+      const pills = r.ends[i].shots
+        .filter((sh) => sh.ring !== NOT_ENTERED)
+        .map((sh) => {
+          const fill = sh.ring >= 0 ? r.model.zones[sh.ring].fill : '#9aa3ab';
+          return {
+            label: zoneLabel(r.model, r.style, sh.ring, sh.index),
+            fill,
+            ink: contrastOn(fill),
+          };
+        });
+      return { ...row, pills, total, off: row.written !== null && row.written !== row.points };
+    });
+  }
+
+  protected roundText(r: PlannedRound) {
     return [
       formatDimension(r.distance),
       faceLabel(r.model.id, r.diameter),
