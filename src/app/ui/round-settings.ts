@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, model } from '@angular/core';
 import { dim, formatDimension, sameDimension } from '../core/dimension';
 import { LengthUnit, RoundTemplate } from '../core/models';
-import { FIXED_3D_SIZE, getTarget, hasFaceSizes, TARGET_PICKER_ORDER } from '../core/targets';
+import { FIXED_3D_SIZE, getTarget, hasFaceSizes, TARGET_GROUPS } from '../core/targets';
 import { TargetFace } from './target-face';
 
 /** Distance, face, scoring and end layout of one round. */
@@ -22,8 +22,14 @@ import { TargetFace } from './target-face';
             [value]="value().targetId"
             (change)="setTarget(+$any($event.target).value)"
           >
-            @for (t of targets; track t.id) {
-              <option [value]="t.id" [selected]="t.id === value().targetId">{{ t.name }}</option>
+            @for (g of groups; track g.name) {
+              <optgroup [label]="g.name">
+                @for (t of g.faces; track t.id) {
+                  <option [value]="t.id" [selected]="t.id === value().targetId">
+                    {{ t.name }}
+                  </option>
+                }
+              </optgroup>
             }
           </select>
         </label>
@@ -132,7 +138,10 @@ import { TargetFace } from './target-face';
 })
 export class RoundSettings {
   readonly value = model.required<RoundTemplate>();
-  protected readonly targets = TARGET_PICKER_ORDER.map(getTarget);
+  protected readonly groups = TARGET_GROUPS.map((g) => ({
+    name: g.name,
+    faces: g.ids.map(getTarget),
+  }));
   protected readonly units: LengthUnit[] = ['m', 'yd'];
   protected readonly model = computed(() => getTarget(this.value().targetId));
   protected readonly hasSizes = computed(() => hasFaceSizes(this.model()));

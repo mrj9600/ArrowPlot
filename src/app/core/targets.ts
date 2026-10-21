@@ -703,11 +703,17 @@ export function upgradeFace(r: { targetId: number; scoringStyle: number }): bool
   return !!to;
 }
 
-/** Display order used in pickers: common faces first. */
-export const TARGET_PICKER_ORDER = [
-  0, 1, 2, 3, 5, 4, 6, 26, 27, 13, 25, 10, 11, 7, 8, 9, 12, 14, 23, 24, 28, 15, 16, 17, 18, 19, 20,
-  21, 22, 100,
+/** Faces grouped for pickers, the common ones first in each group. */
+export const TARGET_GROUPS: { name: string; ids: number[] }[] = [
+  { name: 'World Archery target', ids: [0, 1, 2, 3, 5, 6, 26, 27] },
+  { name: 'Indoor (Vegas, NFAA)', ids: [4, 10, 11] },
+  { name: 'Field', ids: [13, 25, 7, 8, 9, 22] },
+  { name: '3D', ids: [100, 17, 15, 16, 18, 19, 20, 21] },
+  { name: 'Other', ids: [12, 14, 23, 24, 28] },
 ];
+
+/** Every face in picker order. */
+export const TARGET_PICKER_ORDER = TARGET_GROUPS.flatMap((g) => g.ids);
 
 export function getTarget(id: number): TargetModel {
   return BY_ID.get(id) ?? BY_ID.get(0)!;
