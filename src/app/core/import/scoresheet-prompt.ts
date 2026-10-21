@@ -43,9 +43,9 @@ const EXAMPLE = {
           arrowsPerEnd: 2,
           writtenTotal: 34,
           ends: [
-            { target: 5, arrows: ['10', '8'], total: 18, judged: 27, measured: null },
-            { target: 6, arrows: ['11', 'M'], total: 11 },
-            { target: 7, arrows: null, total: 5 },
+            { target: 5, arrows: ['10', '8'], total: 18, running: 18, judged: 27, measured: null },
+            { target: 6, arrows: ['11', 'M'], total: 11, running: 29 },
+            { target: 7, arrows: null, total: 5, running: 34 },
           ],
         },
       ],
@@ -78,11 +78,17 @@ format exactly and do not add fields of your own.
 
 ## Reading the handwriting
 
-- Use the totals to check yourself: the arrows of an end must add up to the end total, and the
-  running totals must add up too. When a digit is unclear, choose the reading that makes the
-  totals agree (look out for 1/7, 4/9, 3/5/8, 6/0 and 10/11/16).
-- If arrows and total still disagree after a careful second look, keep the arrows as you read
-  them, write the total exactly as written, and mention it in \`uncertain\`.
+- The arrow values are the record; the totals are not. Totals are added up by hand on the range
+  and often contain arithmetic errors, so read every arrow on its own first.
+- Then use the totals as a check, carefully: the arrows of an end should add up to the end total,
+  and the running totals should grow by each end total. Only when a digit is genuinely hard to
+  read (look out for 1/7, 4/9, 3/5/8, 6/0 and 10/11/16) may the totals decide between readings.
+  Never change a clearly written arrow to make a total fit.
+- One wrong running total carries its error into every total after it. Compare the step from one
+  running total to the next with the end, rather than the running totals themselves.
+- When arrows and totals disagree, keep the arrows as you read them and the totals exactly as
+  written, and say in \`uncertain\` whether it looks like an addition error on the sheet or a value
+  you may have misread.
 - Crossed-out or overwritten values: use the corrected value.
 - Misses may be written as M, 0, –, / or left empty. Write a miss as "M". On faces where a zone
   is worth 0 (e.g. NFAS body), write "0" only for that zone.
@@ -123,7 +129,8 @@ ${faceList()}
       "ends": [ {
         "arrows": [string] | null,     // values as listed for the scoring, in the order shot if
                                        // known; null if only a total is written
-        "total": number | null,        // the end total as written
+        "total": number | null,        // the end total as written; null if the sheet has none
+        "running": number | null,      // the running total after this end, as written
         "target": number | null,       // 3D/field: target number of this row
         "judged": number | null,       // 3D/field: judged distance in metres, if written
         "measured": number | null,     // measured distance in metres, if written

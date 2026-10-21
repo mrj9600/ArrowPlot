@@ -32,6 +32,8 @@ export interface SheetEnd {
   arrows?: (string | number)[] | null;
   /** The end total as written on the sheet. */
   total?: number | null;
+  /** The running total after this end, as written on the sheet. */
+  running?: number | null;
   /** 3D and field: the target (post) number written for this end. */
   target?: number | null;
   /** 3D and field: judged and measured distance in metres, when written. */
@@ -85,6 +87,8 @@ export interface SheetRow {
   no: number;
   points: number;
   written: number | null;
+  /** The sheet's running total after this end, if written. */
+  writtenRunning: number | null;
   fromTotal: boolean;
   note: string;
 }
@@ -239,6 +243,7 @@ function planRound(r: SheetRound, where: string, problems: string[]): PlannedRou
       no,
       points: s,
       written,
+      writtenRunning: e.running != null && isFinite(Number(e.running)) ? Number(e.running) : null,
       fromTotal: !e.arrows?.length,
       note: String(e.note ?? '').trim(),
     });

@@ -162,7 +162,12 @@ type EditField = 'date' | 'title' | 'location';
                           </td>
                           <td class="num">{{ row.points }}</td>
                           <td class="num">{{ row.written ?? '–' }}</td>
-                          <td class="num">{{ row.total }}</td>
+                          <td class="num" [class.bad-run]="row.runOff">
+                            {{ row.total }}
+                            @if (row.runOff) {
+                              <div class="sheet-run">sheet {{ row.writtenRunning }}</div>
+                            }
+                          </td>
                         </tr>
                         @if (row.note) {
                           <tr class="note-row">
@@ -279,6 +284,14 @@ type EditField = 'date' | 'title' | 'location';
     .sheet tr.off td.num:nth-child(4) {
       color: var(--bad, #c62828);
       font-weight: 700;
+    }
+    .sheet .bad-run {
+      color: var(--bad, #c62828);
+      font-weight: 700;
+    }
+    .sheet .sheet-run {
+      font-size: 11px;
+      font-weight: 400;
     }
     .sheet .note-row td {
       padding-top: 0;
@@ -428,7 +441,17 @@ export class ImportScoresheetPage {
             ink: contrastOn(fill),
           };
         });
-      return { ...row, pills, total, off: row.written !== null && row.written !== row.points };
+      // Only the row where the sheet's running total steps wrongly: one addition error on the
+      // sheet would otherwise mark every row after it.
+      const before = i ? (r.rows[i - 1].writtenRunning ?? total - row.points) : 0;
+      const runOff = row.writtenRunning !== null && row.writtenRunning - before !== row.points;
+      return {
+        ...row,
+        pills,
+        total,
+        runOff,
+        off: row.written !== null && row.written !== row.points,
+      };
     });
   }
 
