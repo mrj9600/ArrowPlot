@@ -6,16 +6,7 @@
 import JSZip from 'jszip';
 import { db } from '../db';
 import { parseDimension } from '../dimension';
-import {
-  Arrow,
-  Bow,
-  BOW_TYPES,
-  End,
-  Round,
-  Shot,
-  Session,
-  WEATHER,
-} from '../models';
+import { Arrow, Bow, BOW_TYPES, End, Round, Shot, Session, WEATHER } from '../models';
 import { EMPTY_SCORE, Repo } from '../repo.service';
 import { splitRoundDefinition } from '../standard-rounds';
 import { columns, getSql, query, Row, tables } from './sqlite';

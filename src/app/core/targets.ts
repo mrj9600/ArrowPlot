@@ -504,7 +504,8 @@ export const TARGETS: TargetModel[] = [
   }),
   face({
     id: 17,
-    name: 'IBO 3D',
+    // IBO scoring (MyTargets' "IBO 3D"), named after its zones: 11, 10, 8 and 5.
+    name: '3D (4 zones)',
     kind: '3d',
     zones: [spotPair(0.05, RED, CENTRE), spotPair(0.11, RED, CENTRE), TEN, VITAL, BODY_ZONE],
     styles: [style(null, false, [11, 11, 10, 8, 5])],
@@ -671,7 +672,7 @@ export const TARGETS: TargetModel[] = [
   // Ids from 100 are ArrowPlot's own (not in MyTargets), added for scoring kinds other apps use.
   face({
     id: 100,
-    name: '3D (10-8-5)',
+    name: '3D (3 zones)',
     kind: '3d',
     zones: [named(circle(0.2, RED, INK, 0.05, 0.05), 'Kill'), VITAL, BODY_ZONE],
     styles: [
@@ -681,26 +682,31 @@ export const TARGETS: TargetModel[] = [
         [10, 8, 5],
         [7, 5, 2],
       ]),
+      // A body hit or a miss costs a point (5/3/-1, e.g. DGS).
+      { ...style(null, false, [5, 3, -1]), miss: -1 },
     ],
-    diameters: SIZES_3D,
-  }),
-  face({
-    id: 101,
-    name: '3D (5-3, body -1)',
-    kind: '3d',
-    // A body hit or a miss costs a point.
-    zones: [named(circle(0.2, RED, INK, 0.05, 0.05), 'Kill'), VITAL, BODY_ZONE],
-    styles: [{ ...style(null, false, [5, 3, -1]), miss: -1 }],
     diameters: SIZES_3D,
   }),
 ];
 
 const BY_ID = new Map(TARGETS.map((t) => [t.id, t]));
 
+/** Faces that became a scoring of another face: old id → the face and scoring to use now. */
+const RETIRED: Record<number, { targetId: number; scoringStyle: number }> = {
+  101: { targetId: 100, scoringStyle: 2 }, // "3D (5-3, body -1)" → 3D (3 zones), 5/3/-1
+};
+
+/** Moves a round (or round definition) off a retired face; returns whether it changed. */
+export function upgradeFace(r: { targetId: number; scoringStyle: number }): boolean {
+  const to = RETIRED[r.targetId];
+  if (to) Object.assign(r, to);
+  return !!to;
+}
+
 /** Display order used in pickers: common faces first. */
 export const TARGET_PICKER_ORDER = [
   0, 1, 2, 3, 5, 4, 6, 26, 27, 13, 25, 10, 11, 7, 8, 9, 12, 14, 23, 24, 28, 15, 16, 17, 18, 19, 20,
-  21, 22, 100, 101,
+  21, 22, 100,
 ];
 
 export function getTarget(id: number): TargetModel {
@@ -715,7 +721,7 @@ export function hasFaceSizes(t: TargetModel): boolean {
 /** Size used for faces without real sizes (3D and animal faces). */
 export const FIXED_3D_SIZE = dim(-4, null);
 
-/** "WA full face 40cm", or just "IBO 3D" for faces without a size. */
+/** "WA full face 40cm", or just "3D (4 zones)" for faces without a size. */
 export function faceLabel(targetId: number, diameter: Dimension): string {
   const size = formatDimension(diameter);
   return size ? `${getTarget(targetId).name} ${size}` : getTarget(targetId).name;

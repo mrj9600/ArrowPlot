@@ -83,8 +83,8 @@ const TYPES: Record<number, TypeMap> = {
   },
   10863: {
     label: 'DGS 3D (5/3, body and miss -1)',
-    targetId: 101,
-    style: 0,
+    targetId: 100,
+    style: 2,
     // Body hits (zone 3) and misses that cost a point both count -1.
     zone: (k, p) => (k === 1 ? 0 : k === 2 ? 1 : k === 3 || p < 0 ? 2 : MISS),
     diameter: MEDIUM_3D,

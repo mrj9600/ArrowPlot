@@ -8,6 +8,7 @@ import {
   scoreEnd,
   selectableZones,
   zoneAt,
+  upgradeFace,
   zoneLabel,
 } from './targets';
 
@@ -141,10 +142,17 @@ describe('targets', () => {
     ]);
   });
 
-  it('costs a point for a miss on 3D (5-3, body -1)', () => {
-    const t = getTarget(101);
+  it('costs a point for a miss on 3D (3 zones) scored 5/3/-1', () => {
+    const t = getTarget(100);
     const shots: Shot[] = [MISS, 2, 0].map((ring, index) => ({ index, x: 0, y: 0, ring }));
-    expect(scoreEnd(t, 0, shots).reached).toBe(-1 - 1 + 5);
-    expect(t.styles[0].name).toContain('Miss -1');
+    expect(scoreEnd(t, 2, shots).reached).toBe(-1 - 1 + 5);
+    expect(t.styles[2].name).toContain('Miss -1');
+  });
+
+  it('moves rounds off the retired 5-3 face', () => {
+    const r = { targetId: 101, scoringStyle: 0 };
+    expect(upgradeFace(r)).toBe(true);
+    expect(r).toEqual({ targetId: 100, scoringStyle: 2 });
+    expect(upgradeFace({ targetId: 17, scoringStyle: 0 })).toBe(false);
   });
 });

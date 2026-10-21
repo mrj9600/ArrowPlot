@@ -5,7 +5,7 @@ import { from } from 'rxjs';
 import { db } from './db';
 import { Arrow, Bow, End, Round, RoundTemplate, Score, StandardRound, Session } from './models';
 import { BUILT_IN_ROUNDS } from './standard-rounds';
-import { getTarget, isFirstHitStyle, scoreEnd } from './targets';
+import { getTarget, isFirstHitStyle, scoreEnd, upgradeFace } from './targets';
 
 export const EMPTY_SCORE: Score = { reached: 0, total: 0, shots: 0, ends: 0, perEnd: false };
 
@@ -31,14 +31,18 @@ export class Repo {
     if ((await db.standardRounds.count()) === 0) {
       await db.standardRounds.bulkAdd(BUILT_IN_ROUNDS as StandardRound[]);
     }
-    // Scores saved by an older version are recomputed once: before ends were counted, and
-    // before a miss cost a point on 3D (5-3, body -1).
-    const rescored = await this.getSetting('scoringVersion', 1);
-    const stale = await db.rounds
-      .filter((r) => r.score.ends === undefined || (rescored < 2 && r.targetId === 101))
-      .toArray();
+    // Rounds and definitions on a face that is now a scoring of another face move over.
+    for (const r of await db.rounds.filter((r) => upgradeFace({ ...r })).toArray()) {
+      upgradeFace(r);
+      await db.rounds.put(r);
+      await this.recomputeRound(r.id!);
+    }
+    await db.standardRounds
+      .filter((s) => upgradeFace({ ...s.round }))
+      .modify((s) => void upgradeFace(s.round));
+    // Scores saved before ends were counted: fill them in once.
+    const stale = await db.rounds.filter((r) => r.score.ends === undefined).toArray();
     for (const r of stale) await this.recomputeRound(r.id!);
-    if (rescored < 2) await this.setSetting('scoringVersion', 2);
     try {
       if (navigator.storage?.persist && !(await navigator.storage.persisted()))
         await navigator.storage.persist();

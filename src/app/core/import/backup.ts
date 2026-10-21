@@ -6,6 +6,7 @@
 import JSZip from 'jszip';
 import { db } from '../db';
 import { StoredImage } from '../models';
+import { upgradeFace } from '../targets';
 
 const FORMAT = 'arrowplot-backup';
 /** 2: a round definition holds one round (`round`) instead of a list (`rounds`). */
@@ -87,10 +88,12 @@ async function parse(file: File): Promise<Parsed> {
     throw new Error('This backup was made by a newer version of ArrowPlot. Update the app first.');
   for (const t of TABLES)
     if (!Array.isArray(data[t])) throw new Error(`The backup is damaged (missing ${t}).`);
+  for (const r of data.rounds) upgradeFace(r);
   for (const s of data.standardRounds) {
     s.round ??= s.rounds?.[0];
     delete s.rounds;
     if (!s.round) throw new Error('The backup is damaged (a round definition has no round).');
+    upgradeFace(s.round);
   }
   const images: StoredImage[] = [];
   for (const meta of (data.images ?? []) as {

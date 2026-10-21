@@ -81,12 +81,12 @@ describe('scoresheet import', () => {
 
   it('reports values that are not on the face', () => {
     const p = planSheet(sheet([{ face: 17, arrowsPerEnd: 1, ends: [{ arrows: ['12'] }] }]));
-    expect(p.problems[0]).toContain('"12" is not a value on IBO 3D');
+    expect(p.problems[0]).toContain('"12" is not a value on 3D (4 zones)');
   });
 
   it('lists every face in the instructions', () => {
     const text = scoresheetPrompt();
-    expect(text).toContain('face 101: 3D (5-3, body -1)');
+    expect(text).toContain('face 100: 3D (3 zones)');
     expect(text).toContain('arrow 2:');
   });
 });
